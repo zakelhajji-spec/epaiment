@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   LayoutDashboard, FileText, Link2, Users, Truck, Wallet,
   UserPlus, CheckSquare, Package, UserCog, Key, CreditCard,
@@ -144,8 +144,9 @@ export function Sidebar({
     new Set(['core', 'sales']) // Default expanded
   )
   const groupedItems = getGroupedNavItems(userModules)
+  const isRTL = language === 'ar'
 
-  const t = (fr: string, ar: string) => language === 'ar' ? ar : fr
+  const t = (fr: string, ar: string) => isRTL ? ar : fr
 
   const handleNavigate = (id: string) => {
     onNavigate(id)
@@ -163,6 +164,29 @@ export function Sidebar({
       return next
     })
   }
+
+  // Close mobile menu on escape key
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && mobileOpen) {
+        setMobileOpen(false)
+      }
+    }
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [mobileOpen])
+
+  // Prevent body scroll when mobile menu is open
+  useEffect(() => {
+    if (mobileOpen) {
+      document.body.style.overflow = 'hidden'
+    } else {
+      document.body.style.overflow = ''
+    }
+    return () => {
+      document.body.style.overflow = ''
+    }
+  }, [mobileOpen])
 
   // Sort categories by order
   const sortedCategories = Object.keys(groupedItems).sort((a, b) => {
@@ -208,7 +232,7 @@ export function Sidebar({
                   key={item.id}
                   onClick={() => handleNavigate(item.id)}
                   className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${
-                    isMobile ? 'text-base py-2.5' : 'text-sm py-2'
+                    isMobile ? 'text-base py-3' : 'text-sm py-2'
                   } ${
                     isActive
                       ? 'bg-blue-50 text-blue-600 font-medium'
@@ -229,6 +253,12 @@ export function Sidebar({
     </>
   )
 
+  // Quick access items for mobile bottom bar
+  const quickAccessItems = ['dashboard', 'invoices', 'payment-links', 'clients', 'settings']
+  const mobileNavItems = quickAccessItems.filter(id => 
+    id === 'dashboard' || id === 'settings' || userModules.includes(id)
+  ).slice(0, 5)
+
   return (
     <>
       {/* Desktop Sidebar */}
@@ -236,7 +266,7 @@ export function Sidebar({
         className={`hidden lg:flex flex-col bg-white border-r border-gray-200 transition-all duration-300 h-screen flex-shrink-0 ${
           collapsed ? 'w-16' : 'w-56'
         }`}
-        dir={language === 'ar' ? 'rtl' : 'ltr'}
+        dir={isRTL ? 'rtl' : 'ltr'}
       >
         {/* Header */}
         <div className="p-3 flex items-center justify-between border-b border-gray-200 flex-shrink-0">
@@ -268,11 +298,11 @@ export function Sidebar({
         {/* Footer */}
         <div className="p-2 border-t border-gray-200 space-y-0.5 flex-shrink-0">
           <button
-            onClick={() => onLanguageChange(language === 'fr' ? 'ar' : 'fr')}
+            onClick={() => onLanguageChange(isRTL ? 'fr' : 'ar')}
             className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-gray-600 hover:bg-gray-100 text-sm"
           >
             <Globe className="w-5 h-5" />
-            {!collapsed && <span>{language === 'fr' ? 'العربية' : 'Français'}</span>}
+            {!collapsed && <span>{isRTL ? 'Français' : 'العربية'}</span>}
           </button>
           <button
             onClick={onLogout}
@@ -285,7 +315,7 @@ export function Sidebar({
       </aside>
 
       {/* Mobile Header */}
-      <header className="lg:hidden sticky top-0 z-40 bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between flex-shrink-0">
+      <header className="lg:hidden fixed top-0 left-0 right-0 z-40 bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-emerald-500 rounded-lg flex items-center justify-center text-white font-bold text-sm">
             E
@@ -293,50 +323,116 @@ export function Sidebar({
           <span className="font-semibold text-gray-800">Epaiement.ma</span>
         </div>
         <div className="flex items-center gap-1">
-          <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => onLanguageChange(language === 'fr' ? 'ar' : 'fr')}>
+          <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => onLanguageChange(isRTL ? 'fr' : 'ar')}>
             <Globe className="w-5 h-5" />
           </Button>
-          <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => setMobileOpen(!mobileOpen)}>
-            {mobileOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+          <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => setMobileOpen(true)}>
+            <Menu className="w-5 h-5" />
           </Button>
         </div>
       </header>
 
-      {/* Mobile Menu */}
+      {/* Mobile Menu Overlay */}
       {mobileOpen && (
-        <div className="lg:hidden fixed inset-0 z-50 bg-black/50" onClick={() => setMobileOpen(false)}>
-          <div
-            className="bg-white w-64 h-full overflow-y-auto"
-            onClick={e => e.stopPropagation()}
-            dir={language === 'ar' ? 'rtl' : 'ltr'}
-          >
-            <div className="sticky top-0 bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-emerald-500 rounded-lg flex items-center justify-center text-white font-bold text-sm">
-                  E
-                </div>
-                <span className="font-semibold text-gray-800">Epaiement.ma</span>
-              </div>
-              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setMobileOpen(false)}>
-                <X className="w-5 h-5" />
-              </Button>
-            </div>
-            <nav className="p-2 space-y-0.5">
-              {renderNavItems(true)}
-            </nav>
-            <div className="border-t border-gray-200 p-3 space-y-2">
-              <Button variant="outline" className="w-full h-9" onClick={() => onLanguageChange(language === 'fr' ? 'ar' : 'fr')}>
-                <Globe className="w-4 h-4 mr-2" />
-                {language === 'fr' ? 'العربية' : 'Français'}
-              </Button>
-              <Button variant="outline" className="w-full h-9" onClick={onLogout}>
-                <LogOut className="w-4 h-4 mr-2" />
-                {t('Déconnexion', 'تسجيل الخروج')}
-              </Button>
-            </div>
-          </div>
-        </div>
+        <div 
+          className="lg:hidden fixed inset-0 z-50 bg-black/50 transition-opacity"
+          onClick={() => setMobileOpen(false)}
+        />
       )}
+
+      {/* Mobile Menu Drawer */}
+      <div
+        className={`lg:hidden fixed top-0 bottom-0 z-50 w-72 max-w-[85vw] bg-white shadow-xl transition-transform duration-300 ease-in-out ${
+          mobileOpen 
+            ? (isRTL ? 'right-0' : 'left-0') 
+            : (isRTL ? 'right-[-100%]' : 'left-[-100%]')
+        }`}
+        dir={isRTL ? 'rtl' : 'ltr'}
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Drawer Header */}
+        <div className="sticky top-0 bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between z-10">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-emerald-500 rounded-lg flex items-center justify-center text-white font-bold text-sm">
+              E
+            </div>
+            <span className="font-semibold text-gray-800">Epaiement.ma</span>
+          </div>
+          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setMobileOpen(false)}>
+            <X className="w-5 h-5" />
+          </Button>
+        </div>
+
+        {/* Drawer Navigation */}
+        <ScrollArea className="flex-1 h-[calc(100vh-140px)]">
+          <nav className="p-3 space-y-1">
+            {renderNavItems(true)}
+          </nav>
+        </ScrollArea>
+
+        {/* Drawer Footer */}
+        <div className="absolute bottom-0 left-0 right-0 border-t border-gray-200 bg-white p-3 space-y-2">
+          <Button 
+            variant="outline" 
+            className="w-full h-10 justify-start" 
+            onClick={() => onLanguageChange(isRTL ? 'fr' : 'ar')}
+          >
+            <Globe className="w-4 h-4 mr-3" />
+            {isRTL ? 'Français' : 'العربية'}
+          </Button>
+          <Button 
+            variant="outline" 
+            className="w-full h-10 justify-start text-red-600 hover:text-red-700 hover:bg-red-50" 
+            onClick={onLogout}
+          >
+            <LogOut className="w-4 h-4 mr-3" />
+            {t('Déconnexion', 'تسجيل الخروج')}
+          </Button>
+        </div>
+      </div>
+
+      {/* Mobile Bottom Navigation */}
+      <nav 
+        className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-gray-200 flex items-center justify-around px-2 py-2 safe-area-bottom"
+        dir={isRTL ? 'rtl' : 'ltr'}
+      >
+        {mobileNavItems.map(id => {
+          const item = Object.values(groupedItems).flat().find(i => i.id === id)
+          if (!item) return null
+          const Icon = iconMap[item.icon] || FileText
+          const isActive = currentPage === id
+
+          return (
+            <button
+              key={id}
+              onClick={() => handleNavigate(id)}
+              className={`flex flex-col items-center justify-center px-3 py-1.5 rounded-lg transition-colors min-w-[60px] ${
+                isActive 
+                  ? 'text-blue-600' 
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              <Icon className={`w-5 h-5 ${isActive ? 'text-blue-600' : ''}`} />
+              <span className={`text-xs mt-0.5 truncate max-w-[60px] ${isActive ? 'font-medium text-blue-600' : ''}`}>
+                {t(item.label.split(' ')[0], item.labelAr.split(' ')[0])}
+              </span>
+            </button>
+          )
+        })}
+        
+        {/* More button to open full menu */}
+        <button
+          onClick={() => setMobileOpen(true)}
+          className="flex flex-col items-center justify-center px-3 py-1.5 rounded-lg text-gray-500 hover:text-gray-700 min-w-[60px]"
+        >
+          <Menu className="w-5 h-5" />
+          <span className="text-xs mt-0.5">Plus</span>
+        </button>
+      </nav>
+
+      {/* Add padding for fixed header and bottom nav on mobile */}
+      <div className="lg:hidden h-14" /> {/* Top padding */}
+      <div className="lg:hidden h-16" /> {/* Bottom padding */}
     </>
   )
 }

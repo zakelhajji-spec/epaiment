@@ -312,20 +312,24 @@ export default function DashboardPage() {
       />
       
       {/* Main Content */}
-      <main className="flex-1 flex flex-col min-h-screen">
-        <Header
-          user={{ 
-            id: session?.user?.id || '', 
-            name: session?.user?.name || 'Utilisateur', 
-            email: session?.user?.email || '',
-            company: settingsData?.companyName 
-          }}
-          language={language}
-          onLanguageChange={setLanguage}
-          onLogout={handleLogout}
-        />
+      <main className="flex-1 flex flex-col min-h-screen lg:min-h-screen">
+        {/* Desktop Header - Hidden on mobile since Sidebar handles it */}
+        <div className="hidden lg:block">
+          <Header
+            user={{ 
+              id: session?.user?.id || '', 
+              name: session?.user?.name || 'Utilisateur', 
+              email: session?.user?.email || '',
+              company: settingsData?.companyName 
+            }}
+            language={language}
+            onLanguageChange={setLanguage}
+            onLogout={handleLogout}
+          />
+        </div>
         
-        <div className="flex-1 p-4 lg:p-6">
+        {/* Main content with proper mobile padding */}
+        <div className="flex-1 p-4 lg:p-6 pt-20 lg:pt-6 pb-24 lg:pb-6">
           <div className="max-w-7xl mx-auto">
             {/* Page Header */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">

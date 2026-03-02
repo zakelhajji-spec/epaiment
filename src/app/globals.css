@@ -156,3 +156,31 @@
     width: 100%;
   }
 }
+
+/* Mobile safe area for devices with home indicator */
+.safe-area-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* Prevent overscroll on mobile */
+html {
+  overscroll-behavior: none;
+}
+
+/* Better touch targets on mobile */
+@media (max-width: 1024px) {
+  button, a, input, select, textarea {
+    min-height: 44px;
+  }
+}
+
+/* Hide scrollbar on mobile for cleaner look */
+@media (max-width: 1024px) {
+  ::-webkit-scrollbar {
+    display: none;
+  }
+  * {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+}
