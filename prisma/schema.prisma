@@ -67,6 +67,8 @@ model User {
   invoices         Invoice[]
   paymentLinks     PaymentLink[]
   auditLogs        AuditLog[]
+  subscription     Subscription?
+  usageRecords     UsageRecord[]
 
   @@index([email])
 }
@@ -271,5 +273,72 @@ model AuditLog {
 
   @@index([userId])
   @@index([action])
+  @@index([resource])
+}
+
+// ===========================================
+// Subscription & Module Groups
+// ===========================================
+
+model Subscription {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  
+  // Plan (starter, business, professional, enterprise)
+  plan      String   @default("starter")
+  
+  // Active module groups (JSON array of group IDs)
+  activeGroups String @default("[]")
+  
+  // Billing
+  price     Float    @default(0)
+  billingCycle String @default("monthly") // monthly or annual
+  status    String   @default("active") // active, canceled, expired, trial
+  
+  // Dates
+  currentPeriodStart DateTime @default(now())
+  currentPeriodEnd   DateTime?
+  trialEnd           DateTime?
+  canceledAt         DateTime?
+  
+  // Payment info
+  paymentMethodId    String?
+  lastPaymentDate    DateTime?
+  nextPaymentDate    DateTime?
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([status])
+}
+
+// ===========================================
+// Usage Tracking
+// ===========================================
+
+model UsageRecord {
+  id        String   @id @default(cuid())
+  userId    String
+  
+  // Resource being tracked
+  resource  String   // invoices, payment_links, clients, etc.
+  action    String   // create, update, delete
+  
+  // Count
+  count     Int      @default(1)
+  
+  // Period
+  periodStart DateTime
+  periodEnd   DateTime
+  
+  createdAt DateTime @default(now())
+  
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, resource, periodStart])
+  @@index([userId])
   @@index([resource])
 }

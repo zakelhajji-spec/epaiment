@@ -953,3 +953,94 @@ Updated comprehensive database schema with:
 - ESLint validation: PASSED (new files)
 
 ---
+
+## Task ID: 13 - Module Groups Pricing System
+### Agent: Main
+### Task: Implement Module Groups with Collective Pricing
+
+### Requirements:
+User requested modules to be grouped by their type (Sales, Stock, Accounting, CRM, Team, Integrations, AI) with each group having a collective price instead of individual module pricing.
+
+### Implementation:
+
+#### 1. Module Groups Configuration (`/src/lib/module-groups.config.ts`)
+Created new module groups configuration with:
+- **8 Module Groups**: Core, Sales, Accounting, CRM, Stock, Team, Integrations, AI
+- **Collective Pricing per Group**:
+  - Core (Principal): FREE - Dashboard, Invoices DGI, Payment Links
+  - Sales (Ventes): 99 MAD/month - Clients, Suppliers, Quotes
+  - Accounting (Comptabilité): 99 MAD/month - Expenses, Credit Notes, Reports
+  - CRM: 149 MAD/month - Leads, Tasks
+  - Stock: 199 MAD/month - Products, Inventory
+  - Team (Équipe): 99 MAD/month - Team Management, Audit
+  - Integrations: 149 MAD/month - API Keys, Payment Gateways
+  - AI (IA): 199 MAD/month - AI Lead Qualifier
+
+- **Pre-configured Bundles**:
+  - Starter: Core only - FREE
+  - Business: Core + Sales + Accounting - 199 MAD/month
+  - Professional: Core + Sales + Accounting + CRM + Integrations - 499 MAD/month
+  - Enterprise: All 8 groups - 999 MAD/month
+
+- **Group Dependencies**: Smart dependency checking (e.g., CRM requires Sales, AI requires CRM)
+
+#### 2. Database Schema Updates (`/prisma/schema.prisma`)
+Added new models:
+- **Subscription**: Track user subscriptions with active module groups
+  - plan (starter, business, professional, enterprise)
+  - activeGroups (JSON array of group IDs)
+  - price, billingCycle, status
+  - Payment dates and trial management
+
+- **UsageRecord**: Track usage per resource type
+  - resource (invoices, payment_links, etc.)
+  - action (create, update, delete)
+  - count and period tracking
+
+#### 3. UI Component (`/src/components/pricing/ModuleGroupPricing.tsx`)
+Created comprehensive pricing UI:
+- **Bundle View**: Pre-configured packages with savings percentages
+- **Groups View**: Individual module groups with expandable details
+- **Visual Design**:
+  - Color-coded groups with left border accent
+  - Popular and Recommended badges
+  - Expandable module details within each group
+  - Dependency warnings for groups requiring others
+
+#### 4. Subscription API Updates (`/src/app/api/subscription/route.ts`)
+Enhanced subscription management:
+- **GET**: Returns active groups, modules, limits, and pricing
+- **POST**: Subscribe to groups or bundles with dependency validation
+- **PUT**: Cancel subscription and reset to starter
+
+### Module Groups Summary:
+| Group | Price | Modules | Features |
+|-------|-------|---------|----------|
+| Core | FREE | 3 | Dashboard, Invoices DGI 2026, Payment Links |
+| Sales | 99 MAD | 3 | Clients, Suppliers, Quotes |
+| Accounting | 99 MAD | 3 | Expenses, Credit Notes, Reports |
+| CRM | 149 MAD | 2 | Leads, Tasks |
+| Stock | 199 MAD | 2 | Products, Inventory |
+| Team | 99 MAD | 2 | Team Management, Audit |
+| Integrations | 149 MAD | 2 | API Keys, Payment Gateways |
+| AI | 199 MAD | 1 | AI Lead Qualifier |
+
+### Files Created:
+- `/home/z/my-project/src/lib/module-groups.config.ts` (~580 lines)
+- `/home/z/my-project/src/components/pricing/ModuleGroupPricing.tsx` (~450 lines)
+
+### Files Modified:
+- `/home/z/my-project/prisma/schema.prisma` - Added Subscription and UsageRecord models
+- `/home/z/my-project/prisma/schema.sqlite` - Added Subscription and UsageRecord models
+- `/home/z/my-project/src/app/api/subscription/route.ts` - Complete rewrite for group-based subscriptions
+- `/home/z/my-project/src/app/dashboard/page.tsx` - Updated to use ModuleGroupPricing component
+
+### Stage Summary:
+- Module groups pricing system implemented
+- 8 functional groups with collective pricing
+- Pre-configured bundles for easy subscription
+- Smart dependency validation
+- French and Arabic translations for all group names and descriptions
+- ESLint validation: PASSED
+
+---

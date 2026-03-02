@@ -20,8 +20,7 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { Sidebar } from '@/components/shared/Sidebar'
 import { Header } from '@/components/shared/Header'
 import { ToastContainer, showToast } from '@/components/shared/Toast'
-import { ModulePricing } from '@/components/pricing/ModulePricing'
-import { MODULES_CONFIG } from '@/lib/modules.config'
+import { ModuleGroupPricing } from '@/components/pricing/ModuleGroupPricing'
 import type { Language } from '@/lib/modules/types'
 import { useClients, useInvoices, usePaymentLinks, useSettings, useReports } from '@/hooks/useApiData'
 import { invoiceApi, paymentLinkApi, clientApi } from '@/lib/api/client'
@@ -107,6 +106,7 @@ export default function DashboardPage() {
   
   // User modules
   const [userModules, setUserModules] = useState<string[]>(['dashboard', 'invoices', 'payment-links', 'clients', 'suppliers'])
+  const [activeGroups, setActiveGroups] = useState<string[]>(['core'])
   
   // Dialogs
   const [dialogOpen, setDialogOpen] = useState<string | null>(null)
@@ -657,29 +657,31 @@ export default function DashboardPage() {
 
             {/* ==================== MODULES ==================== */}
             {currentPage === 'modules' && (
-              <ModulePricing
+              <ModuleGroupPricing
                 language={language}
-                subscribedModules={userModules}
-                onSubscribe={(moduleId) => {
-                  const mod = MODULES_CONFIG[moduleId as keyof typeof MODULES_CONFIG]
-                  if (mod?.dependencies) {
-                    const depsMet = mod.dependencies.every(d => userModules.includes(d))
-                    if (!depsMet) {
-                      showToast(t('Dépendances non satisfaites', 'التبعيات غير ملباة'), 'error')
-                      return
-                    }
-                  }
-                  setUserModules([...userModules, moduleId])
-                  showToast(t('Module activé!', 'تم تفعيل الوحدة!'))
+                subscribedGroups={activeGroups}
+                onSubscribeGroup={(groupId) => {
+                  setActiveGroups([...activeGroups, groupId])
+                  showToast(t('Groupe activé!', 'تم تفعيل المجموعة!'))
                 }}
-                onUnsubscribe={(moduleId) => {
-                  const freeModules = ['dashboard', 'invoices', 'payment-links', 'clients', 'suppliers']
-                  if (freeModules.includes(moduleId)) return
-                  setUserModules(userModules.filter(m => m !== moduleId))
-                  showToast(t('Module désactivé', 'تم تعطيل الوحدة'))
+                onUnsubscribeGroup={(groupId) => {
+                  if (groupId === 'core') return
+                  setActiveGroups(activeGroups.filter(g => g !== groupId))
+                  showToast(t('Groupe désactivé', 'تم تعطيل المجموعة'))
                 }}
                 onSubscribeBundle={(bundleId) => {
-                  showToast(t('Forfait activé!', 'تم تفعيل الباقة!'))
+                  // Find bundle and set groups
+                  const bundles = [
+                    { id: 'starter', groups: ['core'] },
+                    { id: 'business', groups: ['core', 'sales', 'accounting'] },
+                    { id: 'professional', groups: ['core', 'sales', 'accounting', 'crm', 'integrations'] },
+                    { id: 'enterprise', groups: ['core', 'sales', 'accounting', 'crm', 'stock', 'team', 'integrations', 'ai'] },
+                  ]
+                  const bundle = bundles.find(b => b.id === bundleId)
+                  if (bundle) {
+                    setActiveGroups(bundle.groups)
+                    showToast(t('Forfait activé!', 'تم تفعيل الباقة!'))
+                  }
                 }}
               />
             )}
