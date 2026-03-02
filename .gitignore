@@ -47,6 +47,15 @@ test
 prompt
 
 server.log
+
+# Database files
+*.db
+*.db-journal
+prisma/dev.db
+prisma/dev.db-journal
+db/*.db
+db/*.db-journal
+
 # Skills directory
 /skills/
 # GCP Credentials (never commit)

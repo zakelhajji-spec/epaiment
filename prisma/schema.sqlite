@@ -1,8 +1,8 @@
 // ===========================================
-// Epaiement.ma - Local Development Schema
+// Epaiement.ma - Local Development Schema (SQLite)
 // ===========================================
-// SQLite for local development only
-// Use schema.prisma for PostgreSQL (Vercel)
+// Use this for local development only
+// Production uses schema.prisma with PostgreSQL
 
 generator client {
   provider = "prisma-client-js"

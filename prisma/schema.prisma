@@ -1,16 +1,17 @@
 // ===========================================
-// Epaiement.ma - Local Development Schema
+// Epaiement.ma - Production Schema (PostgreSQL)
 // ===========================================
-// SQLite for local development only
-// Use schema.prisma for PostgreSQL (Vercel)
+// This schema is used for Vercel deployment
+// For local development, use schema.sqlite
 
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "sqlite"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_DATABASE_URL")
 }
 
 // ===========================================

@@ -1,6 +1,6 @@
 /**
  * Database connection for Epaiement.ma
- * Supports SQLite locally, PostgreSQL on Vercel
+ * Supports PostgreSQL on Vercel, SQLite for local dev
  */
 
 import { PrismaClient } from '@prisma/client'
@@ -15,10 +15,6 @@ function createPrismaClient() {
   })
 }
 
-// Check if database is configured
-const databaseUrl = process.env.DATABASE_URL
-const isDatabaseConfigured = databaseUrl && !databaseUrl.includes('file:./dev.db')
-
 export const prisma = globalForPrisma.prisma ?? createPrismaClient()
 
 if (process.env.NODE_ENV !== 'production') {
@@ -28,15 +24,11 @@ if (process.env.NODE_ENV !== 'production') {
 // Export db as prisma for compatibility
 export const db = prisma
 
-// Helper to check if we're in demo mode (no real database)
-export function isDemoMode(): boolean {
-  return !isDatabaseConfigured
-}
-
 // Helper to get database status
 export function getDatabaseStatus() {
+  const databaseUrl = process.env.DATABASE_URL
   return {
-    configured: isDatabaseConfigured,
+    configured: !!databaseUrl,
     type: databaseUrl?.startsWith('postgres') ? 'PostgreSQL' : 
           databaseUrl?.startsWith('mysql') ? 'MySQL' :
           databaseUrl?.startsWith('file:') ? 'SQLite' : 'Unknown',
