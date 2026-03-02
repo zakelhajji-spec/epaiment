@@ -101,8 +101,34 @@ export async function POST(request: NextRequest) {
     })
   } catch (error) {
     console.error('Registration error:', error)
+    
+    // Check if it's a Prisma error
+    const errorMessage = error instanceof Error ? error.message : 'Erreur inconnue'
+    
+    // Log more details for debugging
+    if (error instanceof Error) {
+      console.error('Error name:', error.name)
+      console.error('Error stack:', error.stack)
+    }
+    
+    // Check for common database connection issues
+    if (errorMessage.includes('connect') || errorMessage.includes('ECONNREFUSED')) {
+      return NextResponse.json(
+        { error: 'Erreur de connexion à la base de données. Veuillez réessayer plus tard.' },
+        { status: 503 }
+      )
+    }
+    
+    // Check for Prisma specific errors
+    if (errorMessage.includes('Prisma') || errorMessage.includes('prisma')) {
+      return NextResponse.json(
+        { error: 'Erreur de base de données. Vérifiez la configuration.' },
+        { status: 500 }
+      )
+    }
+    
     return NextResponse.json(
-      { error: 'Erreur lors de l\'inscription' },
+      { error: 'Erreur lors de l\'inscription: ' + errorMessage },
       { status: 500 }
     )
   }
