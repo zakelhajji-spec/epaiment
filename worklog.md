@@ -1044,3 +1044,76 @@ Enhanced subscription management:
 - ESLint validation: PASSED
 
 ---
+
+## Task ID: 14 - Comprehensive Dashboard Fixes
+### Agent: Main
+### Task: Fix all broken workflows in the dashboard
+
+### Issues Identified:
+1. **Invoice Edit** - No edit functionality, only create
+2. **Invoice Download/PDF** - PDF generator existed but wasn't connected
+3. **Module Activation** - State not persisted to database, not loading on refresh
+4. **Settings Page** - Showed "coming soon" instead of actual form
+5. **Sidebar** - Used individual modules array instead of deriving from activeGroups
+
+### Fixes Implemented:
+
+#### 1. Invoice Edit Functionality
+- Added edit button for draft invoices
+- Created edit invoice dialog pre-populated with existing data
+- Connected to PUT `/api/invoices/[id]` endpoint
+- Only allows editing of draft invoices
+
+#### 2. Invoice PDF Download/Preview
+- Connected existing PDF generator to invoice actions
+- Added "Eye" button for PDF preview (opens in new tab)
+- Added "Download" button for PDF download
+- PDF includes company info, client info, items table, totals, bank details
+- Uses existing `downloadInvoicePDF` and `previewInvoicePDF` functions
+
+#### 3. Module Activation Persistence
+- Module groups now persist to database via `/api/subscription`
+- Subscription loaded on dashboard mount
+- Sidebar derives visible modules from `activeGroups`
+- Both individual group and bundle subscriptions work
+
+#### 4. Settings Page Fix
+- Replaced "coming soon" message with full `CompanyForm` component
+- Form pre-populated with existing company data from settings API
+- Save updates via PUT `/api/settings`
+- Full DGI 2026 compliance fields
+
+#### 5. Sidebar Module Visibility
+- Updated to use `getModulesForGroups()` from module-groups.config
+- Sidebar now correctly shows/hides modules based on subscription
+- Categories expand/collapse based on available modules
+
+### Invoice Actions Available:
+| Action | When Available | Button |
+|--------|----------------|--------|
+| Preview PDF | Always | Eye icon |
+| Download PDF | Always | Download icon |
+| Edit | Draft only | Edit icon |
+| Send | Draft only | Send icon |
+| Mark Paid | Sent only | CheckCircle icon |
+| Delete | Draft only | Trash icon |
+
+### Files Modified:
+- `/home/z/my-project/src/app/dashboard/page.tsx` - Complete rewrite with all fixes
+- `/home/z/my-project/src/components/shared/Sidebar.tsx` - Updated imports
+
+### Technical Implementation:
+- Used existing `pdf-generator.ts` for PDF generation
+- Used existing `CompanyForm.tsx` for settings
+- Real-time total calculations in invoice forms
+- Proper form state management for edit vs create
+- Error handling and toast notifications for all actions
+
+### Stage Summary:
+- All invoice actions now functional
+- Module subscriptions persist across sessions
+- Settings page fully functional
+- PDF generation working for invoices
+- ESLint validation: PASSED
+
+---
