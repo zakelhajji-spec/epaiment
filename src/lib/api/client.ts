@@ -136,11 +136,21 @@ export const subscriptionApi = {
   get: () => 
     api.get<any>('/subscription'),
   
-  activate: (planId: string, interval?: string) => 
-    api.post<any>('/subscription', { planId, interval }),
+  subscribeGroup: (groupId: string, billingCycle: 'monthly' | 'annual' = 'monthly') => 
+    api.post<any>('/subscription', { action: 'subscribe_group', groupId, billingCycle }),
+  
+  subscribeBundle: (bundleId: string, billingCycle: 'monthly' | 'annual' = 'monthly') => 
+    api.post<any>('/subscription', { action: 'subscribe_bundle', bundleId, billingCycle }),
+  
+  unsubscribeGroup: (groupId: string) => 
+    api.post<any>('/subscription', { action: 'unsubscribe_group', groupId }),
   
   cancel: (reason?: string) => 
     api.put<any>('/subscription', { reason }),
+  
+  // Legacy support - maps to bundle subscription
+  activate: (planId: string, billingCycle: 'monthly' | 'annual' = 'monthly') => 
+    api.post<any>('/subscription', { action: 'subscribe_bundle', bundleId: planId, billingCycle }),
 }
 
 // Client API

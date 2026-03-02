@@ -29,6 +29,7 @@ import { useClients, useInvoices, usePaymentLinks, useSettings, useReports } fro
 import { invoiceApi, paymentLinkApi, clientApi, settingsApi, subscriptionApi } from '@/lib/api/client'
 import { downloadInvoicePDF, previewInvoicePDF } from '@/lib/pdf-generator'
 import { MODULE_GROUPS, getModulesForGroups } from '@/lib/module-groups.config'
+import { parseInvoiceItems } from '@/lib/invoice-utils'
 
 // ==================== TYPES ====================
 interface Client {
@@ -127,8 +128,22 @@ export default function DashboardPage() {
     notes: ''
   })
   
-  // Settings form state
-  const [settingsFormData, setSettingsFormData] = useState<Partial<CompanyFormData> | null>(null)
+  // Settings form state - initialized with defaults so the form always renders
+  const [settingsFormData, setSettingsFormData] = useState<Partial<CompanyFormData>>({
+    name: '',
+    ice: '',
+    if: '',
+    rc: '',
+    patente: '',
+    cnss: '',
+    address: '',
+    city: '',
+    phone: '',
+    email: '',
+    autoEntrepreneur: false,
+    defaultTvaRate: 20,
+    invoicePrefix: 'FA',
+  })
 
   // Fetch data from API
   const { data: clientsData, isLoading: clientsLoading, refetch: refetchClients } = useClients(searchQuery)
@@ -306,6 +321,7 @@ export default function DashboardPage() {
   // Handle download PDF
   const handleDownloadInvoice = (invoice: Invoice) => {
     const client = clients.find((c: Client) => c.id === invoice.clientId)
+    const parsedItems = parseInvoiceItems(invoice.items)
     
     downloadInvoicePDF({
       number: invoice.number,
@@ -315,7 +331,7 @@ export default function DashboardPage() {
       subtotal: invoice.subtotal,
       tvaAmount: invoice.tvaAmount,
       total: invoice.total,
-      items: invoice.items,
+      items: parsedItems,
       notes: invoice.notes,
       client: client ? {
         name: client.name,
@@ -345,6 +361,7 @@ export default function DashboardPage() {
   // Handle preview PDF
   const handlePreviewInvoice = (invoice: Invoice) => {
     const client = clients.find((c: Client) => c.id === invoice.clientId)
+    const parsedItems = parseInvoiceItems(invoice.items)
     
     previewInvoicePDF({
       number: invoice.number,
@@ -354,7 +371,7 @@ export default function DashboardPage() {
       subtotal: invoice.subtotal,
       tvaAmount: invoice.tvaAmount,
       total: invoice.total,
-      items: invoice.items,
+      items: parsedItems,
       notes: invoice.notes,
       client: client ? {
         name: client.name,
@@ -379,10 +396,11 @@ export default function DashboardPage() {
 
   // Open edit invoice dialog
   const openEditInvoiceDialog = (invoice: Invoice) => {
+    const parsedItems = parseInvoiceItems(invoice.items)
     setSelectedItem(invoice)
     setNewInvoice({
       clientId: invoice.clientId,
-      items: invoice.items,
+      items: parsedItems.length > 0 ? parsedItems : [{ id: Math.random().toString(36).substring(2, 9), description: '', quantity: 1, unitPrice: 0, tvaRate: 20 }],
       dueDate: invoice.dueDate?.split('T')[0] || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
       notes: invoice.notes || ''
     })
@@ -456,6 +474,7 @@ export default function DashboardPage() {
 
   // Handle module group subscription
   const handleSubscribeGroup = async (groupId: string) => {
+    const previousGroups = activeGroups
     const newGroups = [...activeGroups, groupId]
     
     // Update locally first for immediate feedback
@@ -465,21 +484,35 @@ export default function DashboardPage() {
     
     // Persist to backend
     try {
-      await fetch('/api/subscription', {
+      const response = await fetch('/api/subscription', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'subscribe_group', groupId })
       })
+      const result = await response.json()
+      
+      if (!response.ok || !result.success) {
+        // Rollback on error
+        setActiveGroups(previousGroups)
+        setUserModules(getModulesForGroups(previousGroups))
+        showToast(result.error || t('Erreur lors de l\'activation', 'خطأ في التفعيل'), 'error')
+        return
+      }
+      
+      showToast(t('Groupe activé!', 'تم تفعيل المجموعة!'))
     } catch (e) {
+      // Rollback on error
+      setActiveGroups(previousGroups)
+      setUserModules(getModulesForGroups(previousGroups))
       console.error('Failed to save subscription:', e)
+      showToast(t('Erreur de connexion', 'خطأ في الاتصال'), 'error')
     }
-    
-    showToast(t('Groupe activé!', 'تم تفعيل المجموعة!'))
   }
 
   const handleUnsubscribeGroup = async (groupId: string) => {
     if (groupId === 'core') return
     
+    const previousGroups = activeGroups
     const newGroups = activeGroups.filter(g => g !== groupId)
     setActiveGroups(newGroups)
     const modules = getModulesForGroups(newGroups)
@@ -487,16 +520,29 @@ export default function DashboardPage() {
     
     // Persist to backend
     try {
-      await fetch('/api/subscription', {
+      const response = await fetch('/api/subscription', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'unsubscribe_group', groupId })
       })
+      const result = await response.json()
+      
+      if (!response.ok || !result.success) {
+        // Rollback on error
+        setActiveGroups(previousGroups)
+        setUserModules(getModulesForGroups(previousGroups))
+        showToast(result.error || t('Erreur lors de la désactivation', 'خطأ في التعطيل'), 'error')
+        return
+      }
+      
+      showToast(t('Groupe désactivé', 'تم تعطيل المجموعة'))
     } catch (e) {
+      // Rollback on error
+      setActiveGroups(previousGroups)
+      setUserModules(getModulesForGroups(previousGroups))
       console.error('Failed to save subscription:', e)
+      showToast(t('Erreur de connexion', 'خطأ في الاتصال'), 'error')
     }
-    
-    showToast(t('Groupe désactivé', 'تم تعطيل المجموعة'))
   }
 
   const handleSubscribeBundle = async (bundleId: string) => {
@@ -507,23 +553,37 @@ export default function DashboardPage() {
       { id: 'enterprise', groups: ['core', 'sales', 'accounting', 'crm', 'stock', 'team', 'integrations', 'ai'] },
     ]
     const bundle = bundles.find(b => b.id === bundleId)
-    if (bundle) {
-      setActiveGroups(bundle.groups)
-      const modules = getModulesForGroups(bundle.groups)
-      setUserModules(modules)
+    if (!bundle) return
+    
+    const previousGroups = activeGroups
+    setActiveGroups(bundle.groups)
+    const modules = getModulesForGroups(bundle.groups)
+    setUserModules(modules)
+    
+    // Persist to backend
+    try {
+      const response = await fetch('/api/subscription', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'subscribe_bundle', bundleId })
+      })
+      const result = await response.json()
       
-      // Persist to backend
-      try {
-        await fetch('/api/subscription', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'subscribe_bundle', bundleId })
-        })
-      } catch (e) {
-        console.error('Failed to save subscription:', e)
+      if (!response.ok || !result.success) {
+        // Rollback on error
+        setActiveGroups(previousGroups)
+        setUserModules(getModulesForGroups(previousGroups))
+        showToast(result.error || t('Erreur lors de l\'activation', 'خطأ في التفعيل'), 'error')
+        return
       }
       
       showToast(t('Forfait activé!', 'تم تفعيل الباقة!'))
+    } catch (e) {
+      // Rollback on error
+      setActiveGroups(previousGroups)
+      setUserModules(getModulesForGroups(previousGroups))
+      console.error('Failed to save subscription:', e)
+      showToast(t('Erreur de connexion', 'خطأ في الاتصال'), 'error')
     }
   }
 
@@ -937,7 +997,7 @@ export default function DashboardPage() {
             )}
 
             {/* ==================== SETTINGS ==================== */}
-            {currentPage === 'settings' && settingsFormData && (
+            {currentPage === 'settings' && (
               <CompanyForm
                 initialData={settingsFormData}
                 language={language}
