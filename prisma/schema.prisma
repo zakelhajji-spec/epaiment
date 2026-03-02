@@ -1,0 +1,1094 @@
+// ===========================================
+// Epaiement.ma - Production Database Schema
+// ===========================================
+// SQLite for development, PostgreSQL for production
+// Comprehensive schema for modular architecture
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ===========================================
+// User & Authentication
+// ===========================================
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  emailVerified DateTime?
+  name          String?
+  passwordHash  String?   // For credentials provider
+  image         String?
+  
+  // DGI 2026 Company Information (for auto-entrepreneurs)
+  companyName      String?
+  companyIce       String?   // 15 digits - Identifiant Commun de l'Entreprise
+  companyIf        String?   // Identifiant Fiscal
+  companyRc        String?   // Registre de Commerce
+  companyPatente   String?   // Numéro de Patente
+  companyCnss      String?   // Numéro CNSS
+  companyLegalForm String?   // SARL, SA, Auto-entrepreneur, etc.
+  companyCapital   String?
+  companyTvaNumber String?
+  companyAddress   String?
+  companyCity      String?
+  companyPhone     String?
+  
+  // Account Settings
+  autoEntrepreneur   Boolean  @default(false)
+  defaultTvaRate     Float    @default(20)
+  invoicePrefix      String   @default("FA")
+  quotePrefix        String   @default("DV")
+  creditNotePrefix   String   @default("AV")
+  defaultCurrency    String   @default("MAD")
+  language           String   @default("fr") // fr, ar
+  
+  // Subscription
+  subscriptionPlan  String   @default("starter") // starter, basic, pro, business
+  
+  // Security
+  twoFactorEnabled  Boolean  @default(false)
+  twoFactorSecret   String?
+  
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  lastLogin DateTime?
+  
+  // Relations
+  accounts         Account[]
+  sessions         Session[]
+  company          Company?
+  subscription     Subscription?
+  moduleUsage      ModuleUsage[]
+  teamMemberships  TeamMember[]
+  clients          Client[]
+  suppliers        Supplier[]
+  invoices         Invoice[]
+  quotes           Quote[]
+  creditNotes      CreditNote[]
+  expenses         Expense[]
+  paymentLinks     PaymentLink[]
+  leads            Lead[]
+  tasks            Task[]
+  products         Product[]
+  apiKeys          ApiKey[]
+  paymentGateways  PaymentGateway[]
+  auditLogs        AuditLog[]
+  notifications    Notification[]
+  exportJobs       ExportJob[]
+
+  @@index([email])
+  @@index([companyIce])
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? 
+  access_token      String? 
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? 
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// ===========================================
+// Company (Multi-company support)
+// ===========================================
+
+model Company {
+  id        String   @id @default(cuid())
+  ownerId   String   @unique
+  
+  // DGI 2026 Full Compliance
+  name            String
+  ice             String?   // 15 digits
+  ifNumber        String?   // Identifiant Fiscal
+  rcNumber        String?   // Registre de Commerce
+  patenteNumber   String?   // Numéro de Patente
+  cnssNumber      String?   // Numéro CNSS
+  tvaNumber       String?   // Numéro de TVA
+  
+  // Legal Information
+  legalForm       String?   // SARL, SA, SNC, Auto-entrepreneur, etc.
+  capital         String?
+  activitySector  String?
+  
+  // Contact Information
+  address         String?
+  city            String?
+  postalCode      String?
+  country         String   @default("Maroc")
+  phone           String?
+  email           String?
+  website         String?
+  
+  // Bank Details
+  bankName        String?
+  bankAccount     String?
+  bankRib         String?
+  bankIban        String?
+  
+  // Settings
+  logoUrl         String?
+  stampUrl        String?
+  signatureUrl    String?
+  invoicePrefix   String   @default("FA")
+  quotePrefix     String   @default("DV")
+  creditNotePrefix String  @default("AV")
+  defaultTvaRate  Float    @default(20)
+  defaultCurrency String   @default("MAD")
+  defaultPaymentTerms Int  @default(30) // days
+  
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relations
+  owner        User          @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  teamMembers  TeamMember[]
+  
+  @@index([ice])
+  @@index([ifNumber])
+}
+
+// ===========================================
+// Subscription & Module System
+// ===========================================
+
+model Subscription {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  
+  // Plan Details
+  plan      String   @default("starter") // starter, basic, pro, business
+  status    String   @default("active")  // active, canceled, expired, trial
+  
+  // Billing
+  price     Float    @default(0)
+  currency  String   @default("MAD")
+  interval  String   @default("monthly") // monthly, annual
+  
+  // Period
+  currentPeriodStart DateTime @default(now())
+  currentPeriodEnd   DateTime?
+  
+  // Trial
+  trialStart DateTime?
+  trialEnd   DateTime?
+  
+  // Cancellation
+  canceledAt      DateTime?
+  cancelAtPeriodEnd Boolean @default(false)
+  cancelReason    String?
+  
+  // Payment
+  paymentMethodId String?
+  lastPaymentAt   DateTime?
+  nextPaymentAt   DateTime?
+  
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([status])
+}
+
+model ModuleUsage {
+  id        String   @id @default(cuid())
+  userId    String
+  
+  // Module
+  moduleId  String
+  
+  // Usage Tracking
+  usageKey  String   // e.g., "invoices_created", "links_created"
+  usageCount Int    @default(0)
+  
+  // Period
+  periodStart DateTime
+  periodEnd   DateTime
+  
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, moduleId, usageKey, periodStart])
+  @@index([userId])
+  @@index([moduleId])
+}
+
+// ===========================================
+// Team Management
+// ===========================================
+
+model TeamMember {
+  id        String   @id @default(cuid())
+  userId    String
+  companyId String?
+  
+  // Member Info
+  email     String
+  name      String?
+  
+  // Role & Status
+  role      String   @default("viewer") // admin, accountant, viewer
+  status    String   @default("pending") // active, pending, inactive
+  
+  // Permissions (JSON)
+  permissions String? // {"invoices": ["read", "write"], "clients": ["read"]}
+  
+  // Dates
+  invitedAt DateTime @default(now())
+  joinedAt  DateTime?
+  lastLogin DateTime?
+  
+  // Inviter
+  invitedBy String?
+  
+  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  company Company? @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, companyId])
+  @@index([userId])
+  @@index([companyId])
+  @@index([email])
+}
+
+// ===========================================
+// Clients & Suppliers
+// ===========================================
+
+model Client {
+  id        String   @id @default(cuid())
+  userId    String
+  
+  // DGI 2026 Required Fields
+  name      String
+  ice       String?   // ICE number (15 digits)
+  email     String
+  phone     String?
+  address   String?
+  city      String?
+  postalCode String?
+  country   String   @default("Maroc")
+  ifNumber  String?   // Identifiant Fiscal
+  rcNumber  String?   // Registre de Commerce
+  
+  // Additional Info
+  notes     String?
+  tags      String?   // JSON array
+  
+  // Statistics (computed)
+  totalInvoices  Int     @default(0)
+  totalAmount    Float   @default(0)
+  totalPaid      Float   @default(0)
+  balance        Float   @default(0)
+  
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  invoices    Invoice[]
+  quotes      Quote[]
+  creditNotes CreditNote[]
+  leads       Lead[]
+
+  @@index([userId])
+  @@index([ice])
+  @@index([email])
+}
+
+model Supplier {
+  id        String   @id @default(cuid())
+  userId    String
+  
+  // DGI 2026 Required Fields
+  name      String
+  ice       String?
+  email     String?
+  phone     String?
+  address   String?
+  city      String?
+  postalCode String?
+  country   String   @default("Maroc")
+  ifNumber  String?
+  rcNumber  String?
+  
+  // Bank Details
+  bankName    String?
+  bankAccount String?
+  
+  // Additional Info
+  notes     String?
+  tags      String?
+  
+  // Statistics
+  totalExpenses Float @default(0)
+  expenseCount  Int   @default(0)
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expenses Expense[]
+
+  @@index([userId])
+  @@index([ice])
+}
+
+// ===========================================
+// Invoices, Quotes, Credit Notes
+// ===========================================
+
+model Invoice {
+  id        String   @id @default(cuid())
+  userId    String
+  clientId  String
+  number    String   // FA-2024-0001
+  
+  // Line Items (JSON)
+  items     String   
+  
+  // Amounts
+  subtotal    Float
+  discountPercent Float @default(0)
+  discountAmount  Float @default(0)
+  tvaAmount   Float
+  total       Float
+  amountPaid  Float   @default(0)
+  balance     Float   @default(0)
+  
+  // Status
+  status      String  @default("draft") // draft, sent, viewed, paid, partial, overdue, cancelled
+  
+  // Dates
+  issueDate   DateTime @default(now())
+  dueDate     DateTime
+  sentAt      DateTime?
+  viewedAt    DateTime?
+  paidAt      DateTime?
+  
+  // Recurring
+  isRecurring       Boolean  @default(false)
+  recurringFrequency String? // monthly, quarterly, annually
+  recurringInterval  Int     @default(1)
+  recurringNextDate DateTime?
+  recurringEndDate  DateTime?
+  parentInvoiceId   String?
+  
+  // Payment Terms
+  paymentTerms Int?
+  lateFeePercent Float @default(0)
+  
+  // Additional
+  notes       String?
+  internalNotes String?
+  qrCode      String?
+  signatureUrl String?
+  stampUrl    String?
+  
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  client      Client        @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  payments    Payment[]
+  creditNotes CreditNote[]
+
+  @@unique([userId, number])
+  @@index([userId])
+  @@index([clientId])
+  @@index([status])
+  @@index([dueDate])
+  @@index([issueDate])
+}
+
+model Quote {
+  id        String   @id @default(cuid())
+  userId    String
+  clientId  String
+  number    String   // DV-2024-0001
+  
+  // Line Items (JSON)
+  items     String   
+  
+  // Amounts
+  subtotal    Float
+  discountPercent Float @default(0)
+  discountAmount  Float @default(0)
+  tvaAmount   Float
+  total       Float
+  
+  // Status
+  status    String   @default("draft") // draft, sent, viewed, accepted, rejected, expired, converted
+  
+  // Dates
+  issueDate   DateTime @default(now())
+  validUntil  DateTime
+  sentAt      DateTime?
+  viewedAt    DateTime?
+  respondedAt DateTime?
+  
+  // Conversion
+  convertedToInvoiceId String?
+  convertedAt DateTime?
+  
+  // Additional
+  notes     String?
+  internalNotes String?
+  terms     String?
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, number])
+  @@index([userId])
+  @@index([clientId])
+  @@index([status])
+  @@index([validUntil])
+}
+
+model CreditNote {
+  id        String   @id @default(cuid())
+  userId    String
+  clientId  String
+  invoiceId String?
+  number    String   // AV-2024-0001
+  
+  // Line Items (JSON)
+  items     String   
+  
+  // Amounts
+  subtotal  Float
+  tvaAmount Float
+  total     Float
+  
+  // Reason
+  reason          String  // refund, discount, correction, other
+  reasonDescription String?
+  
+  // Status
+  status    String   @default("draft") // draft, issued, applied
+  
+  // Dates
+  issueDate DateTime @default(now())
+  appliedAt DateTime?
+  
+  // Additional
+  notes     String?
+  internalNotes String?
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  client  Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  invoice Invoice? @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+
+  @@unique([userId, number])
+  @@index([userId])
+  @@index([clientId])
+  @@index([invoiceId])
+  @@index([status])
+}
+
+model Payment {
+  id        String   @id @default(cuid())
+  invoiceId String
+  
+  amount    Float
+  method    String   // cash, check, bank_transfer, card, other
+  reference String?
+  paidAt    DateTime @default(now())
+  notes     String?
+  
+  // Gateway
+  gatewayId       String?
+  gatewayPaymentId String?
+  gatewayFee      Float   @default(0)
+  
+  createdAt DateTime @default(now())
+  
+  invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@index([invoiceId])
+  @@index([paidAt])
+}
+
+// ===========================================
+// Expenses
+// ===========================================
+
+model Expense {
+  id        String   @id @default(cuid())
+  userId    String
+  supplierId String?
+  
+  description String
+  amount      Float
+  category    String   // rent, salaries, supplies, services, transport, marketing, utilities, taxes, other
+  date        DateTime @default(now())
+  
+  // TVA
+  tvaRate        Float   @default(0)
+  tvaDeductible  Boolean @default(false)
+  tvaAmount      Float   @default(0)
+  
+  // Payment
+  paymentMethod  String?
+  paymentReference String?
+  isPaid         Boolean @default(true)
+  
+  // Additional
+  notes      String?
+  receiptUrl String?
+  tags       String?
+  
+  // Recurring
+  isRecurring      Boolean  @default(false)
+  recurringFrequency String?
+  recurringNextDate DateTime?
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  supplier Supplier? @relation(fields: [supplierId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([supplierId])
+  @@index([category])
+  @@index([date])
+}
+
+// ===========================================
+// Payment Links
+// ===========================================
+
+model PaymentLink {
+  id          String   @id @default(cuid())
+  userId      String
+  
+  amount      Float
+  description String
+  clientName  String?
+  clientEmail String?
+  clientPhone String?
+  reference   String   @unique
+  
+  status      String   @default("pending") // pending, paid, expired, cancelled
+  dueDate     DateTime?
+  expiresAt   DateTime?
+  paidAt      DateTime?
+  
+  // Payment Gateway
+  gatewayId        String?
+  gatewayName      String? // cmi, fatourati, cih_pay, custom
+  gatewayPaymentId String?
+  gatewayFee       Float   @default(0)
+  
+  // QR Code
+  qrCodeUrl  String?
+  qrCodeData String?
+  
+  // Links
+  paymentUrl String?
+  
+  // Notifications
+  emailSentAt DateTime?
+  smsSentAt   DateTime?
+  whatsappSentAt DateTime?
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([status])
+  @@index([reference])
+  @@index([dueDate])
+}
+
+// ===========================================
+// CRM - Leads & Tasks
+// ===========================================
+
+model Lead {
+  id        String   @id @default(cuid())
+  userId    String
+  clientId  String?
+  
+  // Contact Info
+  name      String
+  email     String?
+  phone     String?
+  company   String?
+  
+  // Source & Status
+  source    String   @default("website") // website, referral, social, direct, advertising, other
+  status    String   @default("new")     // new, contacted, qualified, proposal, negotiation, won, lost
+  
+  // Value
+  estimatedValue Float?
+  probability    Int     @default(50) // percentage
+  
+  // Assignment
+  assignedTo String?
+  
+  // Notes
+  notes     String?
+  tags      String?
+  
+  // Dates
+  lastContactedAt DateTime?
+  nextFollowUpAt  DateTime?
+  convertedAt     DateTime?
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  client Client? @relation(fields: [clientId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([status])
+  @@index([source])
+  @@index([assignedTo])
+}
+
+model Task {
+  id        String   @id @default(cuid())
+  userId    String
+  
+  // Task Info
+  title       String
+  description String?
+  
+  // Priority & Status
+  priority    String   @default("medium") // low, medium, high, urgent
+  status      String   @default("pending") // pending, in_progress, completed, cancelled
+  
+  // Dates
+  dueDate     DateTime?
+  completedAt DateTime?
+  
+  // Relations
+  relatedType String? // invoice, client, quote, lead, expense
+  relatedId   String?
+  
+  // Assignment
+  assignedTo  String?
+  
+  // Reminder
+  reminderAt  DateTime?
+  remindedAt  DateTime?
+  
+  // Recurrence
+  isRecurring      Boolean  @default(false)
+  recurringFrequency String?
+  recurringNextDate DateTime?
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([status])
+  @@index([priority])
+  @@index([dueDate])
+  @@index([assignedTo])
+}
+
+// ===========================================
+// Stock - Products & Inventory
+// ===========================================
+
+model Product {
+  id        String   @id @default(cuid())
+  userId    String
+  
+  // Product Info
+  sku         String?
+  name        String
+  description String?
+  
+  // Category
+  category    String?
+  subcategory String?
+  
+  // Pricing
+  unitPrice   Float
+  costPrice   Float?
+  tvaRate     Float   @default(20)
+  
+  // Unit
+  unit        String  @default("unit") // unit, kg, g, l, ml, m, hour, day
+  
+  // Inventory
+  trackStock  Boolean @default(false)
+  stockQty    Int     @default(0)
+  minStock    Int     @default(0)
+  maxStock    Int?
+  
+  // Status
+  isActive    Boolean @default(true)
+  
+  // Image
+  imageUrl    String?
+  
+  // Additional
+  barcode     String?
+  notes       String?
+  tags        String?
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  inventory   Inventory[]
+  
+  @@unique([userId, sku])
+  @@index([userId])
+  @@index([category])
+  @@index([sku])
+  @@index([barcode])
+}
+
+model Inventory {
+  id        String   @id @default(cuid())
+  productId String
+  userId    String
+  
+  // Movement
+  type      String   // in, out, adjustment, transfer
+  quantity  Int
+  previousQty Int
+  newQty    Int
+  
+  // Reference
+  referenceType String? // invoice, purchase, return, adjustment
+  referenceId   String?
+  
+  // Cost
+  unitCost  Float?
+  totalCost Float?
+  
+  // Additional
+  reason    String?
+  notes     String?
+  
+  createdAt DateTime @default(now())
+  
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  
+  @@index([productId])
+  @@index([userId])
+  @@index([type])
+  @@index([createdAt])
+}
+
+// ===========================================
+// API Keys (Secure Storage)
+// ===========================================
+
+model ApiKey {
+  id          String   @id @default(cuid())
+  userId      String
+  
+  name        String
+  keyHash     String   // Hashed key (never store plain key)
+  keyPrefix   String   // First 12 chars for display (ep_live_xxxxxxxx)
+  
+  // Permissions (JSON array)
+  permissions String   // ["read", "write", "delete"]
+  
+  // Limits
+  rateLimit   Int      @default(100) // requests per minute
+  
+  // Usage
+  lastUsed    DateTime?
+  usageCount  Int      @default(0)
+  
+  // Validity
+  expiresAt   DateTime?
+  status      String   @default("active") // active, revoked, expired
+  
+  // Timestamps
+  createdAt DateTime @default(now())
+  revokedAt DateTime?
+  revokedBy String?
+  revokeReason String?
+  
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([keyPrefix])
+  @@index([userId])
+  @@index([status])
+}
+
+// ===========================================
+// Payment Gateways (Encrypted Credentials)
+// ===========================================
+
+model PaymentGateway {
+  id          String   @id @default(cuid())
+  userId      String
+  
+  name        String   // cmi, fatourati, cih_pay, custom
+  displayName String?
+  
+  // Encrypted Credentials (AES-256-GCM)
+  merchantIdEncrypted String  
+  secretKeyEncrypted  String  
+  encryptionIv        String? // Initialization vector
+  
+  // Configuration
+  testMode    Boolean  @default(true)
+  enabled     Boolean  @default(false)
+  
+  // Fees
+  fixedFee    Float    @default(0)
+  percentFee  Float    @default(0)
+  
+  // URLs
+  webhookUrl  String?
+  successUrl  String?
+  failureUrl  String?
+  callbackUrl String?
+  
+  // Custom Config (JSON)
+  customConfig String?
+  
+  // Statistics
+  totalTransactions Int     @default(0)
+  totalVolume       Float   @default(0)
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, name])
+  @@index([userId])
+  @@index([name])
+}
+
+// ===========================================
+// Audit Logs (Security Compliance)
+// ===========================================
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  
+  // Action Details
+  action    String   // create, update, delete, login, logout, export, etc.
+  resource  String   // invoice, client, user, api_key, etc.
+  resourceId String?
+  
+  // Request Info
+  ipAddress String?
+  userAgent String?
+  deviceInfo String?
+  
+  // Changes (JSON)
+  oldValues String?
+  newValues String?
+  details   String?
+  
+  // Status
+  status    String   @default("success") // success, failure
+  
+  // Timestamp
+  createdAt DateTime @default(now())
+  
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([action])
+  @@index([resource])
+  @@index([resourceId])
+  @@index([createdAt])
+}
+
+// ===========================================
+// Notifications
+// ===========================================
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  
+  // Type
+  type      String   // payment_due, payment_overdue, quote_expiring, task_due, low_stock, etc.
+  title     String
+  message   String
+  
+  // Related Entity
+  entityId   String?
+  entityType String? // invoice, quote, payment_link, task, product
+  
+  // Priority
+  priority  String   @default("normal") // low, normal, high, urgent
+  
+  // Status
+  read      Boolean  @default(false)
+  readAt    DateTime?
+  
+  // Delivery
+  channels  String?  // JSON array: ["email", "sms", "whatsapp", "push"]
+  sentAt    DateTime?
+  
+  createdAt DateTime @default(now())
+  
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([read])
+  @@index([type])
+  @@index([createdAt])
+}
+
+// ===========================================
+// Export Jobs
+// ===========================================
+
+model ExportJob {
+  id        String   @id @default(cuid())
+  userId    String
+  
+  // Export Details
+  type      String   // invoices, clients, expenses, quotes, credit_notes, leads, tasks, full_backup
+  format    String   // xlsx, json, csv, pdf
+  
+  // Filters (JSON)
+  filters   String?  // date range, status, etc.
+  
+  // Status
+  status    String   @default("pending") // pending, processing, completed, failed
+  
+  // Results
+  recordCount Int
+  fileSize    Int?
+  downloadUrl String?
+  fileName    String?
+  
+  // Error
+  errorMessage String?
+  
+  // Timestamps
+  createdAt   DateTime @default(now())
+  startedAt   DateTime?
+  completedAt DateTime?
+  expiresAt   DateTime?
+  
+  // Relation
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+// ===========================================
+// Webhook Events (for integrations)
+// ===========================================
+
+model WebhookEvent {
+  id          String   @id @default(cuid())
+  userId      String?
+  
+  // Event Info
+  eventType   String
+  resource    String
+  resourceId  String?
+  
+  // Payload (JSON)
+  payload     String
+  
+  // Delivery
+  endpoint    String
+  attempts    Int      @default(0)
+  maxAttempts Int      @default(5)
+  
+  // Status
+  status      String   @default("pending") // pending, delivered, failed
+  
+  // Response
+  responseCode Int?
+  responseBody String?
+  
+  // Timestamps
+  createdAt      DateTime @default(now())
+  lastAttemptAt  DateTime?
+  deliveredAt    DateTime?
+  
+  @@index([userId])
+  @@index([eventType])
+  @@index([status])
+  @@index([createdAt])
+}
+
+// ===========================================
+// System Settings (Global configuration)
+// ===========================================
+
+model SystemSetting {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     String
+  type      String   @default("string") // string, number, boolean, json
+  
+  description String?
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@index([key])
+}

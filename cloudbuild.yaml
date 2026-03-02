@@ -1,0 +1,61 @@
+# Epaiement.ma - Google Cloud Build Configuration
+# Deploy to Cloud Run
+
+steps:
+  # Build the container image
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'build'
+      - '-t'
+      - 'gcr.io/$PROJECT_ID/epaiement:$COMMIT_SHA'
+      - '-t'
+      - 'gcr.io/$PROJECT_ID/epaiement:latest'
+      - '.'
+  
+  # Push the container image to Container Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'push'
+      - 'gcr.io/$PROJECT_ID/epaiement:$COMMIT_SHA'
+  
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'push'
+      - 'gcr.io/$PROJECT_ID/epaiement:latest'
+  
+  # Deploy container image to Cloud Run
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: gcloud
+    args:
+      - 'run'
+      - 'deploy'
+      - 'epaiement'
+      - '--image'
+      - 'gcr.io/$PROJECT_ID/epaiement:$COMMIT_SHA'
+      - '--region'
+      - 'europe-west1'
+      - '--platform'
+      - 'managed'
+      - '--allow-unauthenticated'
+      - '--port'
+      - '8080'
+      - '--memory'
+      - '1Gi'
+      - '--cpu'
+      - '1'
+      - '--set-env-vars'
+      - 'NODE_ENV=production'
+      - '--set-secrets'
+      - 'DATABASE_URL=epaiement-db-url:latest'
+
+# Store images in Container Registry
+images:
+  - 'gcr.io/$PROJECT_ID/epaiement:$COMMIT_SHA'
+  - 'gcr.io/$PROJECT_ID/epaiement:latest'
+
+# Build timeout
+timeout: '1200s'
+
+# Build options
+options:
+  machineType: 'E2_HIGHCPU_8'
