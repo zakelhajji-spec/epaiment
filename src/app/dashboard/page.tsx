@@ -6,7 +6,10 @@ import { useRouter } from 'next/navigation'
 import {
   FileText, Users, TrendingUp, TrendingDown, Clock, Wallet,
   Plus, Search, Eye, Edit, Trash2, Send, Download, Copy,
-  CheckCircle, XCircle, Link2, CreditCard, Sparkles, Printer
+  CheckCircle, XCircle, Link2, CreditCard, Sparkles, Printer,
+  UserPlus, CheckSquare, Package, Warehouse, Truck, FileCheck,
+  ArrowLeftRight, Receipt, BarChart3, UserCog, Key, Server,
+  FileSearch, Brain, AlertCircle, RefreshCw
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -127,6 +130,45 @@ export default function DashboardPage() {
     dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
     notes: ''
   })
+  
+  // ==================== NEW MODULE STATES ====================
+  // CRM states
+  const [leads, setLeads] = useState<any[]>([])
+  const [tasks, setTasks] = useState<any[]>([])
+  const [newLead, setNewLead] = useState({ name: '', email: '', phone: '', company: '', status: 'new', source: '' })
+  const [newTask, setNewTask] = useState({ title: '', description: '', priority: 'medium', dueDate: '', assignedTo: '' })
+  
+  // Sales states
+  const [suppliers, setSuppliers] = useState<any[]>([])
+  const [quotes, setQuotes] = useState<any[]>([])
+  const [newSupplier, setNewSupplier] = useState({ name: '', email: '', phone: '', ice: '', address: '', city: '' })
+  const [newQuote, setNewQuote] = useState({ clientId: '', items: [{ id: generateId(), description: '', quantity: 1, unitPrice: 0, tvaRate: 20 }] as InvoiceLineItem[], validUntil: '', notes: '' })
+  
+  // Accounting states
+  const [expenses, setExpenses] = useState<any[]>([])
+  const [creditNotes, setCreditNotes] = useState<any[]>([])
+  const [newExpense, setNewExpense] = useState({ description: '', amount: 0, category: '', date: '', tvaRate: 0, supplier: '' })
+  const [newCreditNote, setNewCreditNote] = useState({ invoiceId: '', reason: '', amount: 0 })
+  
+  // Stock states
+  const [products, setProducts] = useState<any[]>([])
+  const [inventory, setInventory] = useState<any[]>([])
+  const [newProduct, setNewProduct] = useState({ name: '', sku: '', description: '', price: 0, tvaRate: 20, category: '', stock: 0 })
+  
+  // Team states
+  const [teamMembers, setTeamMembers] = useState<any[]>([])
+  const [newTeamMember, setNewTeamMember] = useState({ name: '', email: '', role: 'accountant' })
+  
+  // Integrations states
+  const [apiKeys, setApiKeys] = useState<any[]>([])
+  const [gateways, setGateways] = useState<any[]>([])
+  const [newApiKey, setNewApiKey] = useState({ name: '', permissions: 'read' })
+  
+  // Audit states
+  const [auditLogs, setAuditLogs] = useState<any[]>([])
+  
+  // AI states
+  const [aiConversations, setAiConversations] = useState<any[]>([])
   
   // Settings form state - initialized with defaults so the form always renders
   const [settingsFormData, setSettingsFormData] = useState<Partial<CompanyFormData>>({
@@ -655,6 +697,28 @@ export default function DashboardPage() {
                   {currentPage === 'clients' && t('Clients', 'العملاء')}
                   {currentPage === 'modules' && t('Modules', 'الوحدات')}
                   {currentPage === 'settings' && t('Paramètres', 'الإعدادات')}
+                  {/* CRM */}
+                  {currentPage === 'leads' && t('Prospects', 'العملاء المحتملين')}
+                  {currentPage === 'tasks' && t('Tâches', 'المهام')}
+                  {/* Sales */}
+                  {currentPage === 'suppliers' && t('Fournisseurs', 'الموردين')}
+                  {currentPage === 'quotes' && t('Devis', 'العروض')}
+                  {/* Accounting */}
+                  {currentPage === 'expenses' && t('Dépenses', 'المصروفات')}
+                  {currentPage === 'credit-notes' && t('Avoirs', 'إشعارات دائنة')}
+                  {currentPage === 'reports' && t('Rapports', 'التقارير')}
+                  {/* Stock */}
+                  {currentPage === 'products' && t('Produits', 'المنتجات')}
+                  {currentPage === 'inventory' && t('Inventaire', 'المخزون')}
+                  {/* Team */}
+                  {currentPage === 'team' && t('Équipe', 'الفريق')}
+                  {/* Integrations */}
+                  {currentPage === 'api-keys' && t('Clés API', 'مفاتيح API')}
+                  {currentPage === 'gateways' && t('Passerelles de paiement', 'بوابات الدفع')}
+                  {/* Audit */}
+                  {currentPage === 'audit' && t('Audit', 'التدقيق')}
+                  {/* AI */}
+                  {currentPage === 'ai-lead-qualifier' && t('AI Lead Qualifier', 'مؤهل العملاء AI')}
                 </h1>
                 <p className="text-gray-500 text-sm mt-1">
                   {new Date().toLocaleDateString(language === 'ar' ? 'ar-MA' : 'fr-MA', { 
@@ -672,7 +736,7 @@ export default function DashboardPage() {
                     onChange={e => setSearchQuery(e.target.value)} 
                   />
                 </div>
-                {['invoices', 'clients', 'payment-links'].includes(currentPage) && (
+                {['invoices', 'clients', 'payment-links', 'leads', 'tasks', 'suppliers', 'quotes', 'expenses', 'credit-notes', 'products', 'team', 'api-keys'].includes(currentPage) && (
                   <Button onClick={() => setDialogOpen(`new-${currentPage}`)} className="bg-blue-600 hover:bg-blue-700">
                     <Plus className="w-4 h-4 mr-2" /><span className="hidden sm:inline">{t('Nouveau', 'جديد')}</span>
                   </Button>
@@ -1003,6 +1067,738 @@ export default function DashboardPage() {
                 language={language}
                 onSave={handleSaveSettings}
               />
+            )}
+
+            {/* ==================== LEADS (CRM) ==================== */}
+            {currentPage === 'leads' && (
+              <div className="space-y-4">
+                {/* Pipeline Kanban View */}
+                <div className="grid grid-cols-5 gap-4">
+                  {['new', 'contacted', 'qualified', 'converted', 'lost'].map((status) => (
+                    <Card key={status} className="bg-gray-50">
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-sm flex items-center justify-between">
+                          {status === 'new' && t('Nouveau', 'جديد')}
+                          {status === 'contacted' && t('Contacté', 'تم التواصل')}
+                          {status === 'qualified' && t('Qualifié', 'مؤهل')}
+                          {status === 'converted' && t('Converti', 'محول')}
+                          {status === 'lost' && t('Perdu', 'مفقود')}
+                          <Badge variant="secondary" className="ml-2">
+                            {leads.filter(l => l.status === status).length}
+                          </Badge>
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-2 max-h-96 overflow-y-auto">
+                        {leads.filter(l => l.status === status).map((lead) => (
+                          <div key={lead.id} className="bg-white p-3 rounded-lg border shadow-sm">
+                            <p className="font-medium text-sm">{lead.name}</p>
+                            <p className="text-xs text-gray-500">{lead.company}</p>
+                            <p className="text-xs text-gray-400 mt-1">{lead.email}</p>
+                          </div>
+                        ))}
+                        {leads.filter(l => l.status === status).length === 0 && (
+                          <p className="text-xs text-gray-400 text-center py-4">{t('Aucun prospect', 'لا يوجد عملاء محتملين')}</p>
+                        )}
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+                {leads.length === 0 && (
+                  <Card>
+                    <CardContent className="text-center py-16">
+                      <UserPlus className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+                      <p className="text-gray-500 mb-4">{t('Aucun prospect enregistré', 'لا يوجد عملاء محتملين مسجلين')}</p>
+                      <Button onClick={() => setDialogOpen('new-leads')} className="bg-violet-600">
+                        {t('Ajouter un prospect', 'إضافة عميل محتمل')}
+                      </Button>
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
+            )}
+
+            {/* ==================== TASKS (CRM) ==================== */}
+            {currentPage === 'tasks' && (
+              <div className="space-y-4">
+                <Card>
+                  <CardContent className="p-0">
+                    <ScrollArea className="h-[calc(100vh-280px)]">
+                      {tasks.length === 0 ? (
+                        <div className="text-center py-16">
+                          <CheckSquare className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+                          <p className="text-gray-500 mb-4">{t('Aucune tâche', 'لا توجد مهام')}</p>
+                          <Button onClick={() => setDialogOpen('new-tasks')} className="bg-violet-600">
+                            {t('Ajouter une tâche', 'إضافة مهمة')}
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="divide-y">
+                          {tasks.map((task) => (
+                            <div key={task.id} className="flex items-center justify-between p-4 hover:bg-gray-50">
+                              <div className="flex items-center gap-4">
+                                <div className={`w-3 h-3 rounded-full ${
+                                  task.priority === 'high' ? 'bg-red-500' : 
+                                  task.priority === 'medium' ? 'bg-amber-500' : 'bg-green-500'
+                                }`} />
+                                <div>
+                                  <p className="font-medium">{task.title}</p>
+                                  <p className="text-sm text-gray-500">{task.description}</p>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-4">
+                                <p className="text-sm text-gray-500">{task.dueDate ? formatDate(task.dueDate) : ''}</p>
+                                <Badge variant={task.status === 'completed' ? 'default' : 'secondary'}>
+                                  {task.status === 'completed' ? t('Terminé', 'مكتمل') : t('En cours', 'قيد التنفيذ')}
+                                </Badge>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </ScrollArea>
+                  </CardContent>
+                </Card>
+              </div>
+            )}
+
+            {/* ==================== SUPPLIERS (Sales) ==================== */}
+            {currentPage === 'suppliers' && (
+              <div className="space-y-4">
+                <Card>
+                  <CardContent className="p-0">
+                    <ScrollArea className="h-[calc(100vh-280px)]">
+                      {suppliers.length === 0 ? (
+                        <div className="text-center py-16">
+                          <Truck className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+                          <p className="text-gray-500 mb-4">{t('Aucun fournisseur', 'لا يوجد موردين')}</p>
+                          <Button onClick={() => setDialogOpen('new-suppliers')} className="bg-emerald-600">
+                            {t('Ajouter un fournisseur', 'إضافة مورد')}
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="divide-y">
+                          {suppliers.map((supplier) => (
+                            <div key={supplier.id} className="flex items-center justify-between p-4 hover:bg-gray-50">
+                              <div className="flex items-center gap-4">
+                                <div className="w-10 h-10 bg-emerald-100 rounded-lg flex items-center justify-center">
+                                  <Truck className="w-5 h-5 text-emerald-600" />
+                                </div>
+                                <div>
+                                  <p className="font-medium">{supplier.name}</p>
+                                  <p className="text-sm text-gray-500">{supplier.email} {supplier.ice && `• ICE: ${supplier.ice}`}</p>
+                                </div>
+                              </div>
+                              <div className="flex gap-1">
+                                <Button variant="ghost" size="icon"><Edit className="w-4 h-4" /></Button>
+                                <Button variant="ghost" size="icon"><Trash2 className="w-4 h-4 text-red-500" /></Button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </ScrollArea>
+                  </CardContent>
+                </Card>
+              </div>
+            )}
+
+            {/* ==================== QUOTES (Sales) ==================== */}
+            {currentPage === 'quotes' && (
+              <div className="space-y-4">
+                <Card>
+                  <CardContent className="p-0">
+                    <ScrollArea className="h-[calc(100vh-280px)]">
+                      {quotes.length === 0 ? (
+                        <div className="text-center py-16">
+                          <FileCheck className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+                          <p className="text-gray-500 mb-4">{t('Aucun devis', 'لا توجد عروض')}</p>
+                          <Button onClick={() => setDialogOpen('new-quotes')} className="bg-emerald-600">
+                            {t('Créer un devis', 'إنشاء عرض')}
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="divide-y">
+                          {quotes.map((quote) => (
+                            <div key={quote.id} className="flex items-center justify-between p-4 hover:bg-gray-50">
+                              <div className="flex items-center gap-4">
+                                <div className="w-10 h-10 bg-emerald-100 rounded-lg flex items-center justify-center">
+                                  <FileCheck className="w-5 h-5 text-emerald-600" />
+                                </div>
+                                <div>
+                                  <p className="font-medium">{quote.number}</p>
+                                  <p className="text-sm text-gray-500">{quote.client?.name || t('Client inconnu', 'عميل غير معروف')} • {formatDate(quote.createdAt)}</p>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-4">
+                                <div className="text-right">
+                                  <p className="font-semibold">{formatCurrency(quote.total)}</p>
+                                  <Badge variant={quote.status === 'accepted' ? 'default' : quote.status === 'rejected' ? 'destructive' : 'secondary'}>
+                                    {quote.status === 'accepted' ? t('Accepté', 'مقبول') : quote.status === 'rejected' ? t('Refusé', 'مرفوض') : t('En attente', 'قيد الانتظار')}
+                                  </Badge>
+                                </div>
+                                <div className="flex gap-1">
+                                  <Button variant="ghost" size="icon" title={t('Convertir en facture', 'تحويل لفاتورة')}><FileText className="w-4 h-4" /></Button>
+                                  <Button variant="ghost" size="icon"><Edit className="w-4 h-4" /></Button>
+                                  <Button variant="ghost" size="icon"><Trash2 className="w-4 h-4 text-red-500" /></Button>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </ScrollArea>
+                  </CardContent>
+                </Card>
+              </div>
+            )}
+
+            {/* ==================== EXPENSES (Accounting) ==================== */}
+            {currentPage === 'expenses' && (
+              <div className="space-y-4">
+                {/* Summary Cards */}
+                <div className="grid grid-cols-3 gap-4">
+                  <Card>
+                    <CardContent className="p-4">
+                      <p className="text-sm text-gray-500">{t('Total Dépenses', 'إجمالي المصروفات')}</p>
+                      <p className="text-2xl font-bold text-red-600">{formatCurrency(expenses.reduce((s, e) => s + e.amount, 0))}</p>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardContent className="p-4">
+                      <p className="text-sm text-gray-500">{t('TVA Déductible', 'الضريبة القابلة للخصم')}</p>
+                      <p className="text-2xl font-bold text-amber-600">{formatCurrency(expenses.reduce((s, e) => s + (e.amount * e.tvaRate / 100), 0))}</p>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardContent className="p-4">
+                      <p className="text-sm text-gray-500">{t('Ce mois', 'هذا الشهر')}</p>
+                      <p className="text-2xl font-bold text-gray-600">{formatCurrency(expenses.filter(e => new Date(e.date).getMonth() === new Date().getMonth()).reduce((s, e) => s + e.amount, 0))}</p>
+                    </CardContent>
+                  </Card>
+                </div>
+                <Card>
+                  <CardContent className="p-0">
+                    <ScrollArea className="h-[calc(100vh-420px)]">
+                      {expenses.length === 0 ? (
+                        <div className="text-center py-16">
+                          <Receipt className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+                          <p className="text-gray-500 mb-4">{t('Aucune dépense', 'لا توجد مصروفات')}</p>
+                          <Button onClick={() => setDialogOpen('new-expenses')} className="bg-amber-600">
+                            {t('Ajouter une dépense', 'إضافة مصروف')}
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="divide-y">
+                          {expenses.map((expense) => (
+                            <div key={expense.id} className="flex items-center justify-between p-4 hover:bg-gray-50">
+                              <div className="flex items-center gap-4">
+                                <div className="w-10 h-10 bg-amber-100 rounded-lg flex items-center justify-center">
+                                  <Receipt className="w-5 h-5 text-amber-600" />
+                                </div>
+                                <div>
+                                  <p className="font-medium">{expense.description}</p>
+                                  <p className="text-sm text-gray-500">{expense.category} • {expense.supplier} • {formatDate(expense.date)}</p>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-4">
+                                <div className="text-right">
+                                  <p className="font-semibold">{formatCurrency(expense.amount)}</p>
+                                  {expense.tvaRate > 0 && <p className="text-xs text-gray-500">TVA {expense.tvaRate}%</p>}
+                                </div>
+                                <div className="flex gap-1">
+                                  <Button variant="ghost" size="icon"><Edit className="w-4 h-4" /></Button>
+                                  <Button variant="ghost" size="icon"><Trash2 className="w-4 h-4 text-red-500" /></Button>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </ScrollArea>
+                  </CardContent>
+                </Card>
+              </div>
+            )}
+
+            {/* ==================== CREDIT NOTES (Accounting) ==================== */}
+            {currentPage === 'credit-notes' && (
+              <div className="space-y-4">
+                <Card>
+                  <CardContent className="p-0">
+                    <ScrollArea className="h-[calc(100vh-280px)]">
+                      {creditNotes.length === 0 ? (
+                        <div className="text-center py-16">
+                          <ArrowLeftRight className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+                          <p className="text-gray-500 mb-4">{t('Aucun avoir', 'لا توجد إشعارات دائنة')}</p>
+                          <Button onClick={() => setDialogOpen('new-credit-notes')} className="bg-amber-600">
+                            {t('Créer un avoir', 'إنشاء إشعار دائن')}
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="divide-y">
+                          {creditNotes.map((cn) => (
+                            <div key={cn.id} className="flex items-center justify-between p-4 hover:bg-gray-50">
+                              <div className="flex items-center gap-4">
+                                <div className="w-10 h-10 bg-amber-100 rounded-lg flex items-center justify-center">
+                                  <ArrowLeftRight className="w-5 h-5 text-amber-600" />
+                                </div>
+                                <div>
+                                  <p className="font-medium">{cn.number}</p>
+                                  <p className="text-sm text-gray-500">{t('Facture', 'فاتورة')}: {cn.invoiceId} • {cn.reason}</p>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-4">
+                                <div className="text-right">
+                                  <p className="font-semibold">{formatCurrency(cn.amount)}</p>
+                                  <Badge variant={cn.status === 'applied' ? 'default' : 'secondary'}>
+                                    {cn.status === 'applied' ? t('Appliqué', 'تم التطبيق') : t('En attente', 'قيد الانتظار')}
+                                  </Badge>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </ScrollArea>
+                  </CardContent>
+                </Card>
+              </div>
+            )}
+
+            {/* ==================== REPORTS (Accounting) ==================== */}
+            {currentPage === 'reports' && (
+              <div className="space-y-4">
+                {/* Report Types */}
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                  <Card className="cursor-pointer hover:border-amber-300 transition-colors">
+                    <CardContent className="p-6 text-center">
+                      <BarChart3 className="w-10 h-10 text-amber-600 mx-auto mb-3" />
+                      <p className="font-medium">{t('Rapport TVA', 'تقرير الضريبة')}</p>
+                      <p className="text-sm text-gray-500">{t('Déclaration mensuelle', 'الإقرار الشهري')}</p>
+                    </CardContent>
+                  </Card>
+                  <Card className="cursor-pointer hover:border-amber-300 transition-colors">
+                    <CardContent className="p-6 text-center">
+                      <TrendingUp className="w-10 h-10 text-emerald-600 mx-auto mb-3" />
+                      <p className="font-medium">{t('Rapport Revenus', 'تقرير الإيرادات')}</p>
+                      <p className="text-sm text-gray-500">{t('Par période', 'حسب الفترة')}</p>
+                    </CardContent>
+                  </Card>
+                  <Card className="cursor-pointer hover:border-amber-300 transition-colors">
+                    <CardContent className="p-6 text-center">
+                      <Wallet className="w-10 h-10 text-blue-600 mx-auto mb-3" />
+                      <p className="font-medium">{t('Flux de Trésorerie', 'التدفقات النقدية')}</p>
+                      <p className="text-sm text-gray-500">{t('Entrées/Sorties', 'المدخلات/المخرجات')}</p>
+                    </CardContent>
+                  </Card>
+                  <Card className="cursor-pointer hover:border-amber-300 transition-colors">
+                    <CardContent className="p-6 text-center">
+                      <FileText className="w-10 h-10 text-purple-600 mx-auto mb-3" />
+                      <p className="font-medium">{t('Grand Livre', 'دفتر الأستاذ')}</p>
+                      <p className="text-sm text-gray-500">{t('Toutes les écritures', 'جميع القيود')}</p>
+                    </CardContent>
+                  </Card>
+                </div>
+                {/* TVA Summary */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle>{t('Résumé TVA', 'ملخص الضريبة')}</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-3 gap-4 text-center">
+                      <div className="p-4 bg-blue-50 rounded-lg">
+                        <p className="text-sm text-gray-500">{t('TVA Collectée', 'الضريبة المحصلة')}</p>
+                        <p className="text-2xl font-bold text-blue-600">{formatCurrency(metrics.tvaCollected)}</p>
+                      </div>
+                      <div className="p-4 bg-green-50 rounded-lg">
+                        <p className="text-sm text-gray-500">{t('TVA Déductible', 'الضريبة القابلة للخصم')}</p>
+                        <p className="text-2xl font-bold text-green-600">{formatCurrency(metrics.tvaDeductible)}</p>
+                      </div>
+                      <div className={`p-4 rounded-lg ${metrics.tvaCollected - metrics.tvaDeductible >= 0 ? 'bg-red-50' : 'bg-green-50'}`}>
+                        <p className="text-sm text-gray-500">{t('TVA à payer', 'الضريبة المستحقة')}</p>
+                        <p className={`text-2xl font-bold ${metrics.tvaCollected - metrics.tvaDeductible >= 0 ? 'text-red-600' : 'text-green-600'}`}>
+                          {formatCurrency(Math.abs(metrics.tvaCollected - metrics.tvaDeductible))}
+                        </p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            )}
+
+            {/* ==================== PRODUCTS (Stock) ==================== */}
+            {currentPage === 'products' && (
+              <div className="space-y-4">
+                <Card>
+                  <CardContent className="p-0">
+                    <ScrollArea className="h-[calc(100vh-280px)]">
+                      {products.length === 0 ? (
+                        <div className="text-center py-16">
+                          <Package className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+                          <p className="text-gray-500 mb-4">{t('Aucun produit', 'لا توجد منتجات')}</p>
+                          <Button onClick={() => setDialogOpen('new-products')} className="bg-red-600">
+                            {t('Ajouter un produit', 'إضافة منتج')}
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="divide-y">
+                          {products.map((product) => (
+                            <div key={product.id} className="flex items-center justify-between p-4 hover:bg-gray-50">
+                              <div className="flex items-center gap-4">
+                                <div className="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center">
+                                  <Package className="w-5 h-5 text-red-600" />
+                                </div>
+                                <div>
+                                  <p className="font-medium">{product.name}</p>
+                                  <p className="text-sm text-gray-500">SKU: {product.sku} • {product.category}</p>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-4">
+                                <div className="text-right">
+                                  <p className="font-semibold">{formatCurrency(product.price)}</p>
+                                  <p className="text-xs text-gray-500">{t('Stock', 'المخزون')}: {product.stock}</p>
+                                </div>
+                                <div className="flex gap-1">
+                                  <Button variant="ghost" size="icon"><Edit className="w-4 h-4" /></Button>
+                                  <Button variant="ghost" size="icon"><Trash2 className="w-4 h-4 text-red-500" /></Button>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </ScrollArea>
+                  </CardContent>
+                </Card>
+              </div>
+            )}
+
+            {/* ==================== INVENTORY (Stock) ==================== */}
+            {currentPage === 'inventory' && (
+              <div className="space-y-4">
+                <Card>
+                  <CardContent className="p-6 text-center">
+                    <Warehouse className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                    <h3 className="text-lg font-medium mb-2">{t('Gestion des Stocks', 'إدارة المخزون')}</h3>
+                    <p className="text-gray-500 mb-4">{t('Fonctionnalité en cours de développement', 'الميزة قيد التطوير')}</p>
+                    <Badge variant="secondary">{t('Bientôt disponible', 'قريباً')}</Badge>
+                  </CardContent>
+                </Card>
+                {/* Stock Alerts Preview */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg flex items-center gap-2">
+                      <AlertCircle className="w-5 h-5 text-amber-500" />
+                      {t('Alertes Stock', 'تنبيهات المخزون')}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-2">
+                      {products.filter(p => p.stock < 10).map((product) => (
+                        <div key={product.id} className="flex items-center justify-between p-3 bg-amber-50 rounded-lg">
+                          <span className="font-medium">{product.name}</span>
+                          <Badge variant="destructive">{t('Stock bas', 'مخزون منخفض')}: {product.stock}</Badge>
+                        </div>
+                      ))}
+                      {products.filter(p => p.stock < 10).length === 0 && (
+                        <p className="text-gray-500 text-center py-4">{t('Aucune alerte', 'لا توجد تنبيهات')}</p>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            )}
+
+            {/* ==================== TEAM (Team) ==================== */}
+            {currentPage === 'team' && (
+              <div className="space-y-4">
+                <Card>
+                  <CardContent className="p-0">
+                    <ScrollArea className="h-[calc(100vh-280px)]">
+                      {teamMembers.length === 0 ? (
+                        <div className="text-center py-16">
+                          <UserCog className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+                          <p className="text-gray-500 mb-4">{t('Aucun membre', 'لا يوجد أعضاء')}</p>
+                          <Button onClick={() => setDialogOpen('new-team')} className="bg-cyan-600">
+                            {t('Inviter un membre', 'دعوة عضو')}
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="divide-y">
+                          {teamMembers.map((member) => (
+                            <div key={member.id} className="flex items-center justify-between p-4 hover:bg-gray-50">
+                              <div className="flex items-center gap-4">
+                                <div className="w-10 h-10 bg-cyan-100 rounded-full flex items-center justify-center">
+                                  <span className="text-sm font-medium text-cyan-600">
+                                    {member.name.charAt(0).toUpperCase()}
+                                  </span>
+                                </div>
+                                <div>
+                                  <p className="font-medium">{member.name}</p>
+                                  <p className="text-sm text-gray-500">{member.email}</p>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-4">
+                                <Badge variant={member.role === 'admin' ? 'default' : 'secondary'}>
+                                  {member.role === 'admin' ? t('Admin', 'مدير') : member.role === 'accountant' ? t('Comptable', 'محاسب') : t('Lecteur', 'قارئ')}
+                                </Badge>
+                                <Badge variant={member.status === 'active' ? 'default' : 'secondary'}>
+                                  {member.status === 'active' ? t('Actif', 'نشط') : t('En attente', 'قيد الانتظار')}
+                                </Badge>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </ScrollArea>
+                  </CardContent>
+                </Card>
+              </div>
+            )}
+
+            {/* ==================== API KEYS (Integrations) ==================== */}
+            {currentPage === 'api-keys' && (
+              <div className="space-y-4">
+                <Card>
+                  <CardContent className="p-0">
+                    <ScrollArea className="h-[calc(100vh-280px)]">
+                      {apiKeys.length === 0 ? (
+                        <div className="text-center py-16">
+                          <Key className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+                          <p className="text-gray-500 mb-4">{t('Aucune clé API', 'لا توجد مفاتيح API')}</p>
+                          <Button onClick={() => setDialogOpen('new-api-keys')} className="bg-pink-600">
+                            {t('Générer une clé', 'إنشاء مفتاح')}
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="divide-y">
+                          {apiKeys.map((key) => (
+                            <div key={key.id} className="flex items-center justify-between p-4 hover:bg-gray-50">
+                              <div className="flex items-center gap-4">
+                                <div className="w-10 h-10 bg-pink-100 rounded-lg flex items-center justify-center">
+                                  <Key className="w-5 h-5 text-pink-600" />
+                                </div>
+                                <div>
+                                  <p className="font-medium">{key.name}</p>
+                                  <p className="text-sm text-gray-500 font-mono">{key.key?.substring(0, 20)}...</p>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-4">
+                                <Badge variant={key.permissions === 'write' ? 'default' : 'secondary'}>
+                                  {key.permissions === 'write' ? t('Lecture/Écriture', 'قراءة/كتابة') : t('Lecture seule', 'قراءة فقط')}
+                                </Badge>
+                                <div className="flex gap-1">
+                                  <Button variant="ghost" size="icon" onClick={() => navigator.clipboard.writeText(key.key)}>
+                                    <Copy className="w-4 h-4" />
+                                  </Button>
+                                  <Button variant="ghost" size="icon"><Trash2 className="w-4 h-4 text-red-500" /></Button>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </ScrollArea>
+                  </CardContent>
+                </Card>
+              </div>
+            )}
+
+            {/* ==================== GATEWAYS (Integrations) ==================== */}
+            {currentPage === 'gateways' && (
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {/* CMI */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <Server className="w-5 h-5" />
+                        CMI
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <p className="text-sm text-gray-500">{t('Centre Monétique Interbancaire', 'المركز النقدي البيني')}</p>
+                      <div className="flex items-center gap-2">
+                        <Badge variant="outline">{t('Non configuré', 'غير مكون')}</Badge>
+                      </div>
+                      <Button variant="outline" className="w-full">{t('Configurer', 'إعداد')}</Button>
+                    </CardContent>
+                  </Card>
+                  {/* Fatourati */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <Server className="w-5 h-5" />
+                        Fatourati
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <p className="text-sm text-gray-500">{t('CDG Group - Paiement en ligne', 'مجموعة صندوق الإيداع والتدبير')}</p>
+                      <div className="flex items-center gap-2">
+                        <Badge variant="outline">{t('Non configuré', 'غير مكون')}</Badge>
+                      </div>
+                      <Button variant="outline" className="w-full">{t('Configurer', 'إعداد')}</Button>
+                    </CardContent>
+                  </Card>
+                  {/* CIH Pay */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <Server className="w-5 h-5" />
+                        CIH Pay
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <p className="text-sm text-gray-500">{t('CIH Bank - Paiement mobile', 'البنك المغربي للتجارة الخارجية')}</p>
+                      <div className="flex items-center gap-2">
+                        <Badge variant="outline">{t('Non configuré', 'غير مكون')}</Badge>
+                      </div>
+                      <Button variant="outline" className="w-full">{t('Configurer', 'إعداد')}</Button>
+                    </CardContent>
+                  </Card>
+                </div>
+                {/* Webhooks */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle>{t('Webhooks', 'الخطاطات')}</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-sm text-gray-500 mb-4">{t('URLs de callback pour les événements de paiement', 'عناوين URL للاستدعاء لأحداث الدفع')}</p>
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-mono bg-gray-100 px-2 py-1 rounded">https://api.epaiement.ma/webhooks/payment</span>
+                        <Badge variant="secondary">{t('Actif', 'نشط')}</Badge>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            )}
+
+            {/* ==================== AUDIT ==================== */}
+            {currentPage === 'audit' && (
+              <div className="space-y-4">
+                <Card>
+                  <CardContent className="p-0">
+                    <ScrollArea className="h-[calc(100vh-280px)]">
+                      {auditLogs.length === 0 ? (
+                        <div className="text-center py-16">
+                          <FileSearch className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+                          <p className="text-gray-500 mb-2">{t('Journal d\'audit vide', 'سجل التدقيق فارغ')}</p>
+                          <p className="text-sm text-gray-400">{t('Les actions seront enregistrées automatiquement', 'سيتم تسجيل الإجراءات تلقائياً')}</p>
+                        </div>
+                      ) : (
+                        <div className="divide-y">
+                          {auditLogs.map((log) => (
+                            <div key={log.id} className="flex items-center justify-between p-4 hover:bg-gray-50">
+                              <div className="flex items-center gap-4">
+                                <div className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center">
+                                  <FileSearch className="w-4 h-4 text-gray-500" />
+                                </div>
+                                <div>
+                                  <p className="font-medium">{log.action}</p>
+                                  <p className="text-sm text-gray-500">{log.user} • {log.resource}</p>
+                                </div>
+                              </div>
+                              <div className="text-right">
+                                <p className="text-sm text-gray-500">{formatDate(log.timestamp)}</p>
+                                <p className="text-xs text-gray-400">{log.ip}</p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </ScrollArea>
+                  </CardContent>
+                </Card>
+              </div>
+            )}
+
+            {/* ==================== AI LEAD QUALIFIER ==================== */}
+            {currentPage === 'ai-lead-qualifier' && (
+              <div className="space-y-4">
+                {/* AI Status */}
+                <Card>
+                  <CardContent className="p-6">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 bg-orange-100 rounded-xl flex items-center justify-center">
+                          <Brain className="w-6 h-6 text-orange-600" />
+                        </div>
+                        <div>
+                          <h3 className="font-medium">{t('AI Lead Qualifier', 'مؤهل العملاء AI')}</h3>
+                          <p className="text-sm text-gray-500">{t('Qualification automatique via WhatsApp + Gemini AI', 'التأهيل التلقائي عبر واتساب + Gemini AI')}</p>
+                        </div>
+                      </div>
+                      <Badge variant="default" className="bg-green-500">{t('Actif', 'نشط')}</Badge>
+                    </div>
+                  </CardContent>
+                </Card>
+                {/* Stats */}
+                <div className="grid grid-cols-4 gap-4">
+                  <Card>
+                    <CardContent className="p-4 text-center">
+                      <p className="text-2xl font-bold text-orange-600">{aiConversations.filter(c => c.status === 'qualified').length}</p>
+                      <p className="text-sm text-gray-500">{t('Qualifiés', 'مؤهلون')}</p>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardContent className="p-4 text-center">
+                      <p className="text-2xl font-bold text-amber-600">{aiConversations.filter(c => c.status === 'in_progress').length}</p>
+                      <p className="text-sm text-gray-500">{t('En cours', 'قيد التقدم')}</p>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardContent className="p-4 text-center">
+                      <p className="text-2xl font-bold text-red-600">{aiConversations.filter(c => c.status === 'disqualified').length}</p>
+                      <p className="text-sm text-gray-500">{t('Non qualifiés', 'غير مؤهلين')}</p>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardContent className="p-4 text-center">
+                      <p className="text-2xl font-bold text-gray-600">{aiConversations.length}</p>
+                      <p className="text-sm text-gray-500">{t('Total', 'المجموع')}</p>
+                    </CardContent>
+                  </Card>
+                </div>
+                {/* Conversations */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle>{t('Conversations récentes', 'المحادثات الأخيرة')}</CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-0">
+                    <ScrollArea className="h-64">
+                      {aiConversations.length === 0 ? (
+                        <div className="text-center py-8">
+                          <RefreshCw className="w-8 h-8 text-gray-300 mx-auto mb-2" />
+                          <p className="text-gray-500">{t('Aucune conversation', 'لا توجد محادثات')}</p>
+                          <p className="text-sm text-gray-400">{t('Les prospects WhatsApp apparaîtront ici', 'سيظهر العملاء المحتملون من واتساب هنا')}</p>
+                        </div>
+                      ) : (
+                        <div className="divide-y">
+                          {aiConversations.map((conv) => (
+                            <div key={conv.id} className="p-4 hover:bg-gray-50">
+                              <div className="flex items-center justify-between">
+                                <div>
+                                  <p className="font-medium">{conv.phone}</p>
+                                  <p className="text-sm text-gray-500">{conv.summary}</p>
+                                </div>
+                                <Badge variant={
+                                  conv.status === 'qualified' ? 'default' : 
+                                  conv.status === 'disqualified' ? 'destructive' : 'secondary'
+                                }>
+                                  {conv.status === 'qualified' ? t('Qualifié', 'مؤهل') : 
+                                   conv.status === 'disqualified' ? t('Non qualifié', 'غير مؤهل') : t('En cours', 'قيد التقدم')}
+                                </Badge>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </ScrollArea>
+                  </CardContent>
+                </Card>
+              </div>
             )}
           </div>
         </div>
@@ -1405,6 +2201,480 @@ export default function DashboardPage() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setDialogOpen(null)}>{t('Annuler', 'إلغاء')}</Button>
             <Button onClick={handleCreatePaymentLink} className="bg-purple-600">{t('Créer', 'إنشاء')}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ==================== NEW MODULE DIALOGS ==================== */}
+
+      {/* New Lead Dialog */}
+      <Dialog open={dialogOpen === 'new-leads'} onOpenChange={() => setDialogOpen(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t('Ajouter un prospect', 'إضافة عميل محتمل')}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>{t('Nom *', 'الاسم *')}</Label>
+              <Input value={newLead.name} onChange={e => setNewLead({...newLead, name: e.target.value})} />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>{t('Email', 'البريد الإلكتروني')}</Label>
+                <Input type="email" value={newLead.email} onChange={e => setNewLead({...newLead, email: e.target.value})} />
+              </div>
+              <div className="space-y-2">
+                <Label>{t('Téléphone', 'الهاتف')}</Label>
+                <Input value={newLead.phone} onChange={e => setNewLead({...newLead, phone: e.target.value})} />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>{t('Entreprise', 'الشركة')}</Label>
+                <Input value={newLead.company} onChange={e => setNewLead({...newLead, company: e.target.value})} />
+              </div>
+              <div className="space-y-2">
+                <Label>{t('Source', 'المصدر')}</Label>
+                <Select value={newLead.source} onValueChange={v => setNewLead({...newLead, source: v})}>
+                  <SelectTrigger><SelectValue placeholder={t('Sélectionner', 'اختر')} /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="website">{t('Site web', 'الموقع')}</SelectItem>
+                    <SelectItem value="referral">{t('Référence', 'إحالة')}</SelectItem>
+                    <SelectItem value="social">{t('Réseaux sociaux', 'وسائل التواصل')}</SelectItem>
+                    <SelectItem value="other">{t('Autre', 'أخرى')}</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDialogOpen(null)}>{t('Annuler', 'إلغاء')}</Button>
+            <Button onClick={() => { 
+              setLeads([...leads, { ...newLead, id: generateId(), createdAt: new Date().toISOString() }]);
+              setNewLead({ name: '', email: '', phone: '', company: '', status: 'new', source: '' });
+              setDialogOpen(null);
+              showToast(t('Prospect ajouté!', 'تم إضافة العميل المحتمل!'));
+            }} className="bg-violet-600">{t('Ajouter', 'إضافة')}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* New Task Dialog */}
+      <Dialog open={dialogOpen === 'new-tasks'} onOpenChange={() => setDialogOpen(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t('Ajouter une tâche', 'إضافة مهمة')}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>{t('Titre *', 'العنوان *')}</Label>
+              <Input value={newTask.title} onChange={e => setNewTask({...newTask, title: e.target.value})} />
+            </div>
+            <div className="space-y-2">
+              <Label>{t('Description', 'الوصف')}</Label>
+              <Textarea value={newTask.description} onChange={e => setNewTask({...newTask, description: e.target.value})} />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>{t('Priorité', 'الأولوية')}</Label>
+                <Select value={newTask.priority} onValueChange={v => setNewTask({...newTask, priority: v})}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="high">{t('Haute', 'عالية')}</SelectItem>
+                    <SelectItem value="medium">{t('Moyenne', 'متوسطة')}</SelectItem>
+                    <SelectItem value="low">{t('Basse', 'منخفضة')}</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>{t('Date d\'échéance', 'تاريخ الاستحقاق')}</Label>
+                <Input type="date" value={newTask.dueDate} onChange={e => setNewTask({...newTask, dueDate: e.target.value})} />
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDialogOpen(null)}>{t('Annuler', 'إلغاء')}</Button>
+            <Button onClick={() => { 
+              setTasks([...tasks, { ...newTask, id: generateId(), status: 'pending', createdAt: new Date().toISOString() }]);
+              setNewTask({ title: '', description: '', priority: 'medium', dueDate: '', assignedTo: '' });
+              setDialogOpen(null);
+              showToast(t('Tâche ajoutée!', 'تم إضافة المهمة!'));
+            }} className="bg-violet-600">{t('Ajouter', 'إضافة')}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* New Supplier Dialog */}
+      <Dialog open={dialogOpen === 'new-suppliers'} onOpenChange={() => setDialogOpen(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t('Ajouter un fournisseur', 'إضافة مورد')}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>{t('Nom *', 'الاسم *')}</Label>
+              <Input value={newSupplier.name} onChange={e => setNewSupplier({...newSupplier, name: e.target.value})} />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>{t('Email', 'البريد الإلكتروني')}</Label>
+                <Input type="email" value={newSupplier.email} onChange={e => setNewSupplier({...newSupplier, email: e.target.value})} />
+              </div>
+              <div className="space-y-2">
+                <Label>{t('Téléphone', 'الهاتف')}</Label>
+                <Input value={newSupplier.phone} onChange={e => setNewSupplier({...newSupplier, phone: e.target.value})} />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>{t('ICE', 'ICE')}</Label>
+                <Input value={newSupplier.ice} onChange={e => setNewSupplier({...newSupplier, ice: e.target.value})} maxLength={15} />
+              </div>
+              <div className="space-y-2">
+                <Label>{t('Ville', 'المدينة')}</Label>
+                <Input value={newSupplier.city} onChange={e => setNewSupplier({...newSupplier, city: e.target.value})} />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>{t('Adresse', 'العنوان')}</Label>
+              <Input value={newSupplier.address} onChange={e => setNewSupplier({...newSupplier, address: e.target.value})} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDialogOpen(null)}>{t('Annuler', 'إلغاء')}</Button>
+            <Button onClick={() => { 
+              setSuppliers([...suppliers, { ...newSupplier, id: generateId(), createdAt: new Date().toISOString() }]);
+              setNewSupplier({ name: '', email: '', phone: '', ice: '', address: '', city: '' });
+              setDialogOpen(null);
+              showToast(t('Fournisseur ajouté!', 'تم إضافة المورد!'));
+            }} className="bg-emerald-600">{t('Ajouter', 'إضافة')}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* New Quote Dialog */}
+      <Dialog open={dialogOpen === 'new-quotes'} onOpenChange={() => setDialogOpen(null)}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>{t('Créer un devis', 'إنشاء عرض')}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>{t('Client', 'العميل')}</Label>
+              <Select value={newQuote.clientId} onValueChange={v => setNewQuote({...newQuote, clientId: v})}>
+                <SelectTrigger><SelectValue placeholder={t('Sélectionner un client', 'اختر عميلاً')} /></SelectTrigger>
+                <SelectContent>
+                  {clients.map((client: Client) => (
+                    <SelectItem key={client.id} value={client.id}>{client.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>{t('Articles', 'العناصر')}</Label>
+              {newQuote.items.map((item, idx) => (
+                <div key={item.id} className="grid grid-cols-12 gap-2">
+                  <div className="col-span-5">
+                    <Input placeholder={t('Description', 'الوصف')} value={item.description} onChange={e => {
+                      const items = [...newQuote.items]; items[idx].description = e.target.value;
+                      setNewQuote({...newQuote, items});
+                    }} />
+                  </div>
+                  <div className="col-span-2">
+                    <Input type="number" placeholder="Qté" value={item.quantity} onChange={e => {
+                      const items = [...newQuote.items]; items[idx].quantity = parseInt(e.target.value) || 0;
+                      setNewQuote({...newQuote, items});
+                    }} />
+                  </div>
+                  <div className="col-span-2">
+                    <Input type="number" placeholder="Prix" value={item.unitPrice} onChange={e => {
+                      const items = [...newQuote.items]; items[idx].unitPrice = parseFloat(e.target.value) || 0;
+                      setNewQuote({...newQuote, items});
+                    }} />
+                  </div>
+                  <div className="col-span-2">
+                    <Select value={String(item.tvaRate)} onValueChange={v => {
+                      const items = [...newQuote.items]; items[idx].tvaRate = parseInt(v);
+                      setNewQuote({...newQuote, items});
+                    }}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {TVA_RATES.map(rate => <SelectItem key={rate.value} value={String(rate.value)}>{rate.label}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="col-span-1">
+                    <Button variant="ghost" size="icon" onClick={() => {
+                      if (newQuote.items.length > 1) setNewQuote({...newQuote, items: newQuote.items.filter((_, i) => i !== idx)});
+                    }}><Trash2 className="w-4 h-4 text-red-500" /></Button>
+                  </div>
+                </div>
+              ))}
+              <Button variant="outline" size="sm" onClick={() => setNewQuote({...newQuote, items: [...newQuote.items, { id: generateId(), description: '', quantity: 1, unitPrice: 0, tvaRate: 20 }]})}>
+                <Plus className="w-4 h-4 mr-2" /> {t('Ajouter une ligne', 'إضافة سطر')}
+              </Button>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>{t('Valide jusqu\'au', 'صالح حتى')}</Label>
+                <Input type="date" value={newQuote.validUntil} onChange={e => setNewQuote({...newQuote, validUntil: e.target.value})} />
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDialogOpen(null)}>{t('Annuler', 'إلغاء')}</Button>
+            <Button onClick={() => { 
+              const subtotal = newQuote.items.reduce((s, i) => s + (i.quantity * i.unitPrice), 0);
+              const tvaAmount = newQuote.items.reduce((s, i) => s + (i.quantity * i.unitPrice * i.tvaRate / 100), 0);
+              setQuotes([...quotes, { 
+                ...newQuote, id: generateId(), number: `DEV-${Date.now().toString().slice(-6)}`,
+                subtotal, tvaAmount, total: subtotal + tvaAmount,
+                status: 'pending', createdAt: new Date().toISOString()
+              }]);
+              setNewQuote({ clientId: '', items: [{ id: generateId(), description: '', quantity: 1, unitPrice: 0, tvaRate: 20 }], validUntil: '', notes: '' });
+              setDialogOpen(null);
+              showToast(t('Devis créé!', 'تم إنشاء العرض!'));
+            }} className="bg-emerald-600">{t('Créer', 'إنشاء')}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* New Expense Dialog */}
+      <Dialog open={dialogOpen === 'new-expenses'} onOpenChange={() => setDialogOpen(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t('Ajouter une dépense', 'إضافة مصروف')}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>{t('Description *', 'الوصف *')}</Label>
+              <Input value={newExpense.description} onChange={e => setNewExpense({...newExpense, description: e.target.value})} />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>{t('Montant (MAD) *', 'المبلغ (درهم) *')}</Label>
+                <Input type="number" value={newExpense.amount || ''} onChange={e => setNewExpense({...newExpense, amount: parseFloat(e.target.value) || 0})} />
+              </div>
+              <div className="space-y-2">
+                <Label>{t('Catégorie', 'الفئة')}</Label>
+                <Select value={newExpense.category} onValueChange={v => setNewExpense({...newExpense, category: v})}>
+                  <SelectTrigger><SelectValue placeholder={t('Sélectionner', 'اختر')} /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="supplies">{t('Fournitures', 'المستلزمات')}</SelectItem>
+                    <SelectItem value="services">{t('Services', 'الخدمات')}</SelectItem>
+                    <SelectItem value="rent">{t('Loyer', 'الإيجار')}</SelectItem>
+                    <SelectItem value="utilities">{t('Factures', 'الفواتير')}</SelectItem>
+                    <SelectItem value="travel">{t('Déplacements', 'التنقلات')}</SelectItem>
+                    <SelectItem value="other">{t('Autre', 'أخرى')}</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>{t('Date', 'التاريخ')}</Label>
+                <Input type="date" value={newExpense.date} onChange={e => setNewExpense({...newExpense, date: e.target.value})} />
+              </div>
+              <div className="space-y-2">
+                <Label>{t('TVA (%)', 'الضريبة (%)')}</Label>
+                <Select value={String(newExpense.tvaRate)} onValueChange={v => setNewExpense({...newExpense, tvaRate: parseInt(v)})}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="0">0%</SelectItem>
+                    <SelectItem value="7">7%</SelectItem>
+                    <SelectItem value="10">10%</SelectItem>
+                    <SelectItem value="14">14%</SelectItem>
+                    <SelectItem value="20">20%</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>{t('Fournisseur', 'المورد')}</Label>
+              <Input value={newExpense.supplier} onChange={e => setNewExpense({...newExpense, supplier: e.target.value})} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDialogOpen(null)}>{t('Annuler', 'إلغاء')}</Button>
+            <Button onClick={() => { 
+              setExpenses([...expenses, { ...newExpense, id: generateId(), createdAt: new Date().toISOString() }]);
+              setNewExpense({ description: '', amount: 0, category: '', date: '', tvaRate: 0, supplier: '' });
+              setDialogOpen(null);
+              showToast(t('Dépense ajoutée!', 'تم إضافة المصروف!'));
+            }} className="bg-amber-600">{t('Ajouter', 'إضافة')}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* New Credit Note Dialog */}
+      <Dialog open={dialogOpen === 'new-credit-notes'} onOpenChange={() => setDialogOpen(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t('Créer un avoir', 'إنشاء إشعار دائن')}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>{t('Facture associée', 'الفاتورة المرتبطة')}</Label>
+              <Select value={newCreditNote.invoiceId} onValueChange={v => setNewCreditNote({...newCreditNote, invoiceId: v})}>
+                <SelectTrigger><SelectValue placeholder={t('Sélectionner une facture', 'اختر فاتورة')} /></SelectTrigger>
+                <SelectContent>
+                  {invoices.map((inv: Invoice) => (
+                    <SelectItem key={inv.id} value={inv.id}>{inv.number}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>{t('Motif', 'السبب')}</Label>
+              <Textarea value={newCreditNote.reason} onChange={e => setNewCreditNote({...newCreditNote, reason: e.target.value})} />
+            </div>
+            <div className="space-y-2">
+              <Label>{t('Montant (MAD)', 'المبلغ (درهم)')}</Label>
+              <Input type="number" value={newCreditNote.amount || ''} onChange={e => setNewCreditNote({...newCreditNote, amount: parseFloat(e.target.value) || 0})} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDialogOpen(null)}>{t('Annuler', 'إلغاء')}</Button>
+            <Button onClick={() => { 
+              setCreditNotes([...creditNotes, { 
+                ...newCreditNote, id: generateId(), number: `AV-${Date.now().toString().slice(-6)}`,
+                status: 'pending', createdAt: new Date().toISOString()
+              }]);
+              setNewCreditNote({ invoiceId: '', reason: '', amount: 0 });
+              setDialogOpen(null);
+              showToast(t('Avoir créé!', 'تم إنشاء الإشعار الدائن!'));
+            }} className="bg-amber-600">{t('Créer', 'إنشاء')}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* New Product Dialog */}
+      <Dialog open={dialogOpen === 'new-products'} onOpenChange={() => setDialogOpen(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t('Ajouter un produit', 'إضافة منتج')}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>{t('Nom *', 'الاسم *')}</Label>
+                <Input value={newProduct.name} onChange={e => setNewProduct({...newProduct, name: e.target.value})} />
+              </div>
+              <div className="space-y-2">
+                <Label>{t('SKU', 'رمز المنتج')}</Label>
+                <Input value={newProduct.sku} onChange={e => setNewProduct({...newProduct, sku: e.target.value})} />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>{t('Description', 'الوصف')}</Label>
+              <Textarea value={newProduct.description} onChange={e => setNewProduct({...newProduct, description: e.target.value})} />
+            </div>
+            <div className="grid grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <Label>{t('Prix (MAD)', 'السعر (درهم)')}</Label>
+                <Input type="number" value={newProduct.price || ''} onChange={e => setNewProduct({...newProduct, price: parseFloat(e.target.value) || 0})} />
+              </div>
+              <div className="space-y-2">
+                <Label>{t('TVA (%)', 'الضريبة (%)')}</Label>
+                <Select value={String(newProduct.tvaRate)} onValueChange={v => setNewProduct({...newProduct, tvaRate: parseInt(v)})}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {TVA_RATES.map(rate => <SelectItem key={rate.value} value={String(rate.value)}>{rate.label}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>{t('Stock initial', 'المخزون الأولي')}</Label>
+                <Input type="number" value={newProduct.stock || ''} onChange={e => setNewProduct({...newProduct, stock: parseInt(e.target.value) || 0})} />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>{t('Catégorie', 'الفئة')}</Label>
+              <Input value={newProduct.category} onChange={e => setNewProduct({...newProduct, category: e.target.value})} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDialogOpen(null)}>{t('Annuler', 'إلغاء')}</Button>
+            <Button onClick={() => { 
+              setProducts([...products, { ...newProduct, id: generateId(), createdAt: new Date().toISOString() }]);
+              setNewProduct({ name: '', sku: '', description: '', price: 0, tvaRate: 20, category: '', stock: 0 });
+              setDialogOpen(null);
+              showToast(t('Produit ajouté!', 'تم إضافة المنتج!'));
+            }} className="bg-red-600">{t('Ajouter', 'إضافة')}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* New Team Member Dialog */}
+      <Dialog open={dialogOpen === 'new-team'} onOpenChange={() => setDialogOpen(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t('Inviter un membre', 'دعوة عضو')}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>{t('Nom *', 'الاسم *')}</Label>
+              <Input value={newTeamMember.name} onChange={e => setNewTeamMember({...newTeamMember, name: e.target.value})} />
+            </div>
+            <div className="space-y-2">
+              <Label>{t('Email *', 'البريد الإلكتروني *')}</Label>
+              <Input type="email" value={newTeamMember.email} onChange={e => setNewTeamMember({...newTeamMember, email: e.target.value})} />
+            </div>
+            <div className="space-y-2">
+              <Label>{t('Rôle', 'الدور')}</Label>
+              <Select value={newTeamMember.role} onValueChange={v => setNewTeamMember({...newTeamMember, role: v})}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="admin">{t('Administrateur', 'مدير')}</SelectItem>
+                  <SelectItem value="accountant">{t('Comptable', 'محاسب')}</SelectItem>
+                  <SelectItem value="reader">{t('Lecteur', 'قارئ')}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDialogOpen(null)}>{t('Annuler', 'إلغاء')}</Button>
+            <Button onClick={() => { 
+              setTeamMembers([...teamMembers, { ...newTeamMember, id: generateId(), status: 'pending', createdAt: new Date().toISOString() }]);
+              setNewTeamMember({ name: '', email: '', role: 'accountant' });
+              setDialogOpen(null);
+              showToast(t('Invitation envoyée!', 'تم إرسال الدعوة!'));
+            }} className="bg-cyan-600">{t('Inviter', 'دعوة')}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* New API Key Dialog */}
+      <Dialog open={dialogOpen === 'new-api-keys'} onOpenChange={() => setDialogOpen(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t('Générer une clé API', 'إنشاء مفتاح API')}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>{t('Nom de la clé', 'اسم المفتاح')}</Label>
+              <Input value={newApiKey.name} onChange={e => setNewApiKey({...newApiKey, name: e.target.value})} placeholder={t('Ex: Integration CRM', 'مثال: تكامل CRM')} />
+            </div>
+            <div className="space-y-2">
+              <Label>{t('Permissions', 'الصلاحيات')}</Label>
+              <Select value={newApiKey.permissions} onValueChange={v => setNewApiKey({...newApiKey, permissions: v})}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="read">{t('Lecture seule', 'قراءة فقط')}</SelectItem>
+                  <SelectItem value="write">{t('Lecture/Écriture', 'قراءة/كتابة')}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDialogOpen(null)}>{t('Annuler', 'إلغاء')}</Button>
+            <Button onClick={() => { 
+              const apiKey = `ep_${Math.random().toString(36).substring(2, 15)}_${Math.random().toString(36).substring(2, 15)}`;
+              setApiKeys([...apiKeys, { ...newApiKey, id: generateId(), key: apiKey, createdAt: new Date().toISOString() }]);
+              setNewApiKey({ name: '', permissions: 'read' });
+              setDialogOpen(null);
+              showToast(t('Clé générée!', 'تم إنشاء المفتاح!'));
+            }} className="bg-pink-600">{t('Générer', 'إنشاء')}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
