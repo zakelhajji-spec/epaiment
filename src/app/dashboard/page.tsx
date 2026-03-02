@@ -33,6 +33,7 @@ import { invoiceApi, paymentLinkApi, clientApi, settingsApi, subscriptionApi } f
 import { downloadInvoicePDF, previewInvoicePDF } from '@/lib/pdf-generator'
 import { MODULE_GROUPS, getModulesForGroups } from '@/lib/module-groups.config'
 import { parseInvoiceItems } from '@/lib/invoice-utils'
+import { AILeadQualifierDashboard } from '@/modules/ai-lead-qualifier'
 
 // ==================== TYPES ====================
 interface Client {
@@ -1716,89 +1717,7 @@ export default function DashboardPage() {
 
             {/* ==================== AI LEAD QUALIFIER ==================== */}
             {currentPage === 'ai-lead-qualifier' && (
-              <div className="space-y-4">
-                {/* AI Status */}
-                <Card>
-                  <CardContent className="p-6">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 bg-orange-100 rounded-xl flex items-center justify-center">
-                          <Brain className="w-6 h-6 text-orange-600" />
-                        </div>
-                        <div>
-                          <h3 className="font-medium">{t('AI Lead Qualifier', 'مؤهل العملاء AI')}</h3>
-                          <p className="text-sm text-gray-500">{t('Qualification automatique via WhatsApp + Gemini AI', 'التأهيل التلقائي عبر واتساب + Gemini AI')}</p>
-                        </div>
-                      </div>
-                      <Badge variant="default" className="bg-green-500">{t('Actif', 'نشط')}</Badge>
-                    </div>
-                  </CardContent>
-                </Card>
-                {/* Stats */}
-                <div className="grid grid-cols-4 gap-4">
-                  <Card>
-                    <CardContent className="p-4 text-center">
-                      <p className="text-2xl font-bold text-orange-600">{aiConversations.filter(c => c.status === 'qualified').length}</p>
-                      <p className="text-sm text-gray-500">{t('Qualifiés', 'مؤهلون')}</p>
-                    </CardContent>
-                  </Card>
-                  <Card>
-                    <CardContent className="p-4 text-center">
-                      <p className="text-2xl font-bold text-amber-600">{aiConversations.filter(c => c.status === 'in_progress').length}</p>
-                      <p className="text-sm text-gray-500">{t('En cours', 'قيد التقدم')}</p>
-                    </CardContent>
-                  </Card>
-                  <Card>
-                    <CardContent className="p-4 text-center">
-                      <p className="text-2xl font-bold text-red-600">{aiConversations.filter(c => c.status === 'disqualified').length}</p>
-                      <p className="text-sm text-gray-500">{t('Non qualifiés', 'غير مؤهلين')}</p>
-                    </CardContent>
-                  </Card>
-                  <Card>
-                    <CardContent className="p-4 text-center">
-                      <p className="text-2xl font-bold text-gray-600">{aiConversations.length}</p>
-                      <p className="text-sm text-gray-500">{t('Total', 'المجموع')}</p>
-                    </CardContent>
-                  </Card>
-                </div>
-                {/* Conversations */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle>{t('Conversations récentes', 'المحادثات الأخيرة')}</CardTitle>
-                  </CardHeader>
-                  <CardContent className="p-0">
-                    <ScrollArea className="h-64">
-                      {aiConversations.length === 0 ? (
-                        <div className="text-center py-8">
-                          <RefreshCw className="w-8 h-8 text-gray-300 mx-auto mb-2" />
-                          <p className="text-gray-500">{t('Aucune conversation', 'لا توجد محادثات')}</p>
-                          <p className="text-sm text-gray-400">{t('Les prospects WhatsApp apparaîtront ici', 'سيظهر العملاء المحتملون من واتساب هنا')}</p>
-                        </div>
-                      ) : (
-                        <div className="divide-y">
-                          {aiConversations.map((conv) => (
-                            <div key={conv.id} className="p-4 hover:bg-gray-50">
-                              <div className="flex items-center justify-between">
-                                <div>
-                                  <p className="font-medium">{conv.phone}</p>
-                                  <p className="text-sm text-gray-500">{conv.summary}</p>
-                                </div>
-                                <Badge variant={
-                                  conv.status === 'qualified' ? 'default' : 
-                                  conv.status === 'disqualified' ? 'destructive' : 'secondary'
-                                }>
-                                  {conv.status === 'qualified' ? t('Qualifié', 'مؤهل') : 
-                                   conv.status === 'disqualified' ? t('Non qualifié', 'غير مؤهل') : t('En cours', 'قيد التقدم')}
-                                </Badge>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </ScrollArea>
-                  </CardContent>
-                </Card>
-              </div>
+              <AILeadQualifierDashboard language={language} />
             )}
           </div>
         </div>
