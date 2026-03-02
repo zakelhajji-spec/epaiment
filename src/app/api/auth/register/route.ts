@@ -1,13 +1,11 @@
 /**
  * User Registration Route
- * Simplified for deployment
+ * Creates new users in the database
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-
-// In-memory store for demo purposes
-// In production, use a real database
-const usersStore: Map<string, { email: string; name: string; passwordHash: string }> = new Map()
+import { prisma } from '@/lib/db'
+import { hash } from 'bcryptjs'
 
 // Email validation
 function isValidEmail(email: string): boolean {
@@ -55,8 +53,10 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Check if user exists
-    const existingUser = usersStore.get(email.toLowerCase())
+    // Check if user exists in database
+    const existingUser = await prisma.user.findUnique({
+      where: { email: email.toLowerCase() }
+    })
 
     if (existingUser) {
       return NextResponse.json(
@@ -66,24 +66,37 @@ export async function POST(request: NextRequest) {
     }
 
     // Hash password
-    const bcrypt = await import('bcryptjs')
-    const passwordHash = await bcrypt.hash(password, 12)
+    const passwordHash = await hash(password, 12)
 
-    // Store user (in memory for demo)
-    const userId = `user_${Date.now()}`
-    usersStore.set(email.toLowerCase(), {
-      email: email.toLowerCase(),
-      name: name || email.split('@')[0],
-      passwordHash
+    // Create user in database
+    const user = await prisma.user.create({
+      data: {
+        email: email.toLowerCase(),
+        passwordHash,
+        name: name || email.split('@')[0],
+        companyName: companyName || null,
+        companyIce: companyIce || null,
+      }
     })
+
+    // Create default company for the user
+    if (companyName) {
+      await prisma.company.create({
+        data: {
+          ownerId: user.id,
+          name: companyName,
+          ice: companyIce || null,
+        }
+      })
+    }
 
     return NextResponse.json({
       success: true,
       message: 'Compte créé avec succès',
       user: {
-        id: userId,
-        email: email.toLowerCase(),
-        name: name || email.split('@')[0]
+        id: user.id,
+        email: user.email,
+        name: user.name
       }
     })
   } catch (error) {

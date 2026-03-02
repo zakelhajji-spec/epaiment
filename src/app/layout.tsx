@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
+import { SessionProvider } from "@/components/providers/SessionProvider";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -45,7 +46,6 @@ export const metadata: Metadata = {
       "max-snippet": -1,
     },
   },
-  // Security-related meta tags
   other: {
     "format-detection": "telephone=no",
     "mobile-web-app-capable": "yes",
@@ -62,21 +62,18 @@ export default function RootLayout({
   return (
     <html lang="fr" suppressHydrationWarning>
       <head>
-        {/* Security meta tags */}
         <meta httpEquiv="X-UA-Compatible" content="IE=edge" />
         <meta name="format-detection" content="telephone=no" />
         <meta name="skype_toolbar" content="skype_toolbar_parser_compatible" />
-        
-        {/* Prevent referrer leakage */}
         <meta name="referrer" content="origin-when-cross-origin" />
-        
-        {/* Theme color for mobile browsers */}
         <meta name="theme-color" content="#1B3F66" />
       </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground`}
       >
-        {children}
+        <SessionProvider>
+          {children}
+        </SessionProvider>
         <Toaster />
       </body>
     </html>
