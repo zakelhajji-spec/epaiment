@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation'
 import {
   FileText, Users, TrendingUp, TrendingDown, Clock, Wallet,
   Plus, Search, Eye, Edit, Trash2, Send, Download, Copy,
-  CheckCircle, XCircle, Link2, CreditCard, Sparkles
+  CheckCircle, XCircle, Link2, CreditCard, Sparkles, Printer
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -17,13 +17,18 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { Separator } from '@/components/ui/separator'
 import { Sidebar } from '@/components/shared/Sidebar'
 import { Header } from '@/components/shared/Header'
 import { ToastContainer, showToast } from '@/components/shared/Toast'
 import { ModuleGroupPricing } from '@/components/pricing/ModuleGroupPricing'
+import { CompanyForm } from '@/components/shared/CompanyForm'
+import type { CompanyFormData } from '@/components/shared/CompanyForm'
 import type { Language } from '@/lib/modules/types'
 import { useClients, useInvoices, usePaymentLinks, useSettings, useReports } from '@/hooks/useApiData'
-import { invoiceApi, paymentLinkApi, clientApi } from '@/lib/api/client'
+import { invoiceApi, paymentLinkApi, clientApi, settingsApi, subscriptionApi } from '@/lib/api/client'
+import { downloadInvoicePDF, previewInvoicePDF } from '@/lib/pdf-generator'
+import { MODULE_GROUPS, getModulesForGroups } from '@/lib/module-groups.config'
 
 // ==================== TYPES ====================
 interface Client {
@@ -104,9 +109,9 @@ export default function DashboardPage() {
   const [currentPage, setCurrentPage] = useState('dashboard')
   const [searchQuery, setSearchQuery] = useState('')
   
-  // User modules
-  const [userModules, setUserModules] = useState<string[]>(['dashboard', 'invoices', 'payment-links', 'clients', 'suppliers'])
+  // Active module groups - loaded from subscription
   const [activeGroups, setActiveGroups] = useState<string[]>(['core'])
+  const [userModules, setUserModules] = useState<string[]>(['dashboard', 'invoices', 'payment-links', 'clients'])
   
   // Dialogs
   const [dialogOpen, setDialogOpen] = useState<string | null>(null)
@@ -121,12 +126,15 @@ export default function DashboardPage() {
     dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
     notes: ''
   })
+  
+  // Settings form state
+  const [settingsFormData, setSettingsFormData] = useState<Partial<CompanyFormData> | null>(null)
 
   // Fetch data from API
   const { data: clientsData, isLoading: clientsLoading, refetch: refetchClients } = useClients(searchQuery)
   const { data: invoicesData, isLoading: invoicesLoading, refetch: refetchInvoices } = useInvoices()
   const { data: paymentLinksData, isLoading: paymentLinksLoading, refetch: refetchPaymentLinks } = usePaymentLinks()
-  const { data: settingsData } = useSettings()
+  const { data: settingsData, refetch: refetchSettings } = useSettings()
   const { data: reportsData } = useReports('overview')
 
   // Derived data
@@ -141,10 +149,44 @@ export default function DashboardPage() {
     }
   }, [status, router])
 
-  // Load user modules from settings
+  // Load subscription and settings
   useEffect(() => {
-    if (settingsData?.modules) {
-      setUserModules(settingsData.modules)
+    const loadData = async () => {
+      if (status !== 'authenticated') return
+      
+      // Load subscription
+      try {
+        const subResult = await subscriptionApi.get()
+        if (subResult.data?.activeGroups) {
+          setActiveGroups(subResult.data.activeGroups)
+          const modules = getModulesForGroups(subResult.data.activeGroups)
+          setUserModules(modules)
+        }
+      } catch (e) {
+        console.error('Failed to load subscription:', e)
+      }
+    }
+    loadData()
+  }, [status])
+
+  // Prepare settings form data when settings load
+  useEffect(() => {
+    if (settingsData) {
+      setSettingsFormData({
+        name: settingsData.companyName || '',
+        ice: settingsData.companyIce || '',
+        if: settingsData.companyIf || '',
+        rc: settingsData.companyRc || '',
+        patente: settingsData.companyPatente || '',
+        cnss: settingsData.companyCnss || '',
+        address: settingsData.companyAddress || '',
+        city: settingsData.companyCity || '',
+        phone: settingsData.companyPhone || '',
+        email: settingsData.email || '',
+        autoEntrepreneur: settingsData.autoEntrepreneur || false,
+        defaultTvaRate: settingsData.defaultTvaRate || 20,
+        invoicePrefix: settingsData.invoicePrefix || 'FA',
+      })
     }
   }, [settingsData])
 
@@ -233,6 +275,120 @@ export default function DashboardPage() {
     }
   }
 
+  // Handle edit invoice
+  const handleEditInvoice = async () => {
+    if (!selectedItem) return
+    
+    const subtotal = newInvoice.items.reduce((s, i) => s + (i.quantity * i.unitPrice), 0)
+    const tvaAmount = newInvoice.items.reduce((s, i) => s + (i.quantity * i.unitPrice * i.tvaRate / 100), 0)
+    const total = subtotal + tvaAmount
+
+    const result = await invoiceApi.update(selectedItem.id, {
+      clientId: newInvoice.clientId,
+      items: newInvoice.items,
+      subtotal,
+      tvaAmount,
+      total,
+      dueDate: newInvoice.dueDate,
+      notes: newInvoice.notes
+    })
+
+    if (result.data) {
+      showToast(t('Facture modifiée!', 'تم تعديل الفاتورة!'))
+      setDialogOpen(null)
+      setSelectedItem(null)
+      refetchInvoices()
+    } else {
+      showToast(result.error || t('Erreur lors de la modification', 'خطأ في التعديل'), 'error')
+    }
+  }
+
+  // Handle download PDF
+  const handleDownloadInvoice = (invoice: Invoice) => {
+    const client = clients.find((c: Client) => c.id === invoice.clientId)
+    
+    downloadInvoicePDF({
+      number: invoice.number,
+      status: invoice.status,
+      createdAt: invoice.createdAt,
+      dueDate: invoice.dueDate,
+      subtotal: invoice.subtotal,
+      tvaAmount: invoice.tvaAmount,
+      total: invoice.total,
+      items: invoice.items,
+      notes: invoice.notes,
+      client: client ? {
+        name: client.name,
+        email: client.email,
+        phone: client.phone,
+        address: client.address,
+        city: client.city,
+        ice: client.ice,
+      } : undefined,
+      company: {
+        name: settingsData?.companyName,
+        ice: settingsData?.companyIce,
+        ifNumber: settingsData?.companyIf,
+        rcNumber: settingsData?.companyRc,
+        address: settingsData?.companyAddress,
+        city: settingsData?.companyCity,
+        phone: settingsData?.companyPhone,
+        email: session?.user?.email,
+        bankName: settingsData?.company?.bankName,
+        bankRib: settingsData?.company?.bankRib,
+      }
+    }, 'invoice')
+    
+    showToast(t('PDF téléchargé!', 'تم تحميل PDF!'))
+  }
+
+  // Handle preview PDF
+  const handlePreviewInvoice = (invoice: Invoice) => {
+    const client = clients.find((c: Client) => c.id === invoice.clientId)
+    
+    previewInvoicePDF({
+      number: invoice.number,
+      status: invoice.status,
+      createdAt: invoice.createdAt,
+      dueDate: invoice.dueDate,
+      subtotal: invoice.subtotal,
+      tvaAmount: invoice.tvaAmount,
+      total: invoice.total,
+      items: invoice.items,
+      notes: invoice.notes,
+      client: client ? {
+        name: client.name,
+        email: client.email,
+        phone: client.phone,
+        address: client.address,
+        city: client.city,
+        ice: client.ice,
+      } : undefined,
+      company: {
+        name: settingsData?.companyName,
+        ice: settingsData?.companyIce,
+        ifNumber: settingsData?.companyIf,
+        rcNumber: settingsData?.companyRc,
+        address: settingsData?.companyAddress,
+        city: settingsData?.companyCity,
+        phone: settingsData?.companyPhone,
+        email: session?.user?.email,
+      }
+    }, 'invoice')
+  }
+
+  // Open edit invoice dialog
+  const openEditInvoiceDialog = (invoice: Invoice) => {
+    setSelectedItem(invoice)
+    setNewInvoice({
+      clientId: invoice.clientId,
+      items: invoice.items,
+      dueDate: invoice.dueDate?.split('T')[0] || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+      notes: invoice.notes || ''
+    })
+    setDialogOpen('edit-invoice')
+  }
+
   // Payment link handlers
   const handleCreatePaymentLink = async () => {
     if (!newPaymentLink.amount || !newPaymentLink.description) {
@@ -270,6 +426,104 @@ export default function DashboardPage() {
         showToast(t('Lien supprimé', 'تم حذف الرابط'))
         refetchPaymentLinks()
       }
+    }
+  }
+
+  // Handle settings save
+  const handleSaveSettings = async (data: CompanyFormData) => {
+    const result = await settingsApi.update({
+      companyName: data.name,
+      companyIce: data.ice,
+      companyIf: data.if,
+      companyRc: data.rc,
+      companyPatente: data.patente,
+      companyCnss: data.cnss,
+      companyAddress: data.address,
+      companyCity: data.city,
+      companyPhone: data.phone,
+      autoEntrepreneur: data.autoEntrepreneur,
+      defaultTvaRate: data.defaultTvaRate,
+      invoicePrefix: data.invoicePrefix,
+    })
+    
+    if (result.data) {
+      showToast(t('Paramètres enregistrés!', 'تم حفظ الإعدادات!'))
+      refetchSettings()
+    } else {
+      showToast(result.error || t('Erreur', 'خطأ'), 'error')
+    }
+  }
+
+  // Handle module group subscription
+  const handleSubscribeGroup = async (groupId: string) => {
+    const newGroups = [...activeGroups, groupId]
+    
+    // Update locally first for immediate feedback
+    setActiveGroups(newGroups)
+    const modules = getModulesForGroups(newGroups)
+    setUserModules(modules)
+    
+    // Persist to backend
+    try {
+      await fetch('/api/subscription', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'subscribe_group', groupId })
+      })
+    } catch (e) {
+      console.error('Failed to save subscription:', e)
+    }
+    
+    showToast(t('Groupe activé!', 'تم تفعيل المجموعة!'))
+  }
+
+  const handleUnsubscribeGroup = async (groupId: string) => {
+    if (groupId === 'core') return
+    
+    const newGroups = activeGroups.filter(g => g !== groupId)
+    setActiveGroups(newGroups)
+    const modules = getModulesForGroups(newGroups)
+    setUserModules(modules)
+    
+    // Persist to backend
+    try {
+      await fetch('/api/subscription', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'unsubscribe_group', groupId })
+      })
+    } catch (e) {
+      console.error('Failed to save subscription:', e)
+    }
+    
+    showToast(t('Groupe désactivé', 'تم تعطيل المجموعة'))
+  }
+
+  const handleSubscribeBundle = async (bundleId: string) => {
+    const bundles = [
+      { id: 'starter', groups: ['core'] },
+      { id: 'business', groups: ['core', 'sales', 'accounting'] },
+      { id: 'professional', groups: ['core', 'sales', 'accounting', 'crm', 'integrations'] },
+      { id: 'enterprise', groups: ['core', 'sales', 'accounting', 'crm', 'stock', 'team', 'integrations', 'ai'] },
+    ]
+    const bundle = bundles.find(b => b.id === bundleId)
+    if (bundle) {
+      setActiveGroups(bundle.groups)
+      const modules = getModulesForGroups(bundle.groups)
+      setUserModules(modules)
+      
+      // Persist to backend
+      try {
+        await fetch('/api/subscription', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'subscribe_bundle', bundleId })
+        })
+      } catch (e) {
+        console.error('Failed to save subscription:', e)
+      }
+      
+      showToast(t('Forfait activé!', 'تم تفعيل الباقة!'))
     }
   }
 
@@ -313,7 +567,7 @@ export default function DashboardPage() {
       
       {/* Main Content */}
       <main className="flex-1 flex flex-col min-h-screen lg:min-h-screen">
-        {/* Desktop Header - Hidden on mobile since Sidebar handles it */}
+        {/* Desktop Header */}
         <div className="hidden lg:block">
           <Header
             user={{ 
@@ -436,7 +690,7 @@ export default function DashboardPage() {
                         { label: t('Créer une facture', 'إنشاء فاتورة'), icon: FileText, action: () => setDialogOpen('new-invoices') },
                         { label: t('Créer un lien', 'إنشاء رابط'), icon: Link2, action: () => setDialogOpen('new-payment-links') },
                         { label: t('Ajouter un client', 'إضافة عميل'), icon: Users, action: () => setDialogOpen('new-clients') },
-                        { label: t('Dépenses', 'المصاريف'), icon: Wallet, action: () => setCurrentPage('expenses') },
+                        { label: t('Modules', 'الوحدات'), icon: Sparkles, action: () => setCurrentPage('modules') },
                       ].map((action, i) => (
                         <button 
                           key={i} 
@@ -525,22 +779,38 @@ export default function DashboardPage() {
                                   </Badge>
                                 </div>
                                 <div className="flex gap-1">
-                                  <Button variant="ghost" size="icon" onClick={() => { setSelectedItem(invoice); setDialogOpen('view-invoice') }}>
+                                  {/* View/Preview PDF */}
+                                  <Button variant="ghost" size="icon" onClick={() => handlePreviewInvoice(invoice)} title={t('Aperçu PDF', 'معاينة PDF')}>
                                     <Eye className="w-4 h-4" />
                                   </Button>
+                                  {/* Download PDF */}
+                                  <Button variant="ghost" size="icon" onClick={() => handleDownloadInvoice(invoice)} title={t('Télécharger PDF', 'تحميل PDF')}>
+                                    <Download className="w-4 h-4" />
+                                  </Button>
+                                  {/* Edit - only for drafts */}
                                   {invoice.status === 'draft' && (
-                                    <Button variant="ghost" size="icon" onClick={() => handleInvoiceAction(invoice.id, 'send')}>
+                                    <Button variant="ghost" size="icon" onClick={() => openEditInvoiceDialog(invoice)} title={t('Modifier', 'تعديل')}>
+                                      <Edit className="w-4 h-4" />
+                                    </Button>
+                                  )}
+                                  {/* Send - only for drafts */}
+                                  {invoice.status === 'draft' && (
+                                    <Button variant="ghost" size="icon" onClick={() => handleInvoiceAction(invoice.id, 'send')} title={t('Envoyer', 'إرسال')}>
                                       <Send className="w-4 h-4" />
                                     </Button>
                                   )}
+                                  {/* Mark paid - only for sent */}
                                   {invoice.status === 'sent' && (
-                                    <Button variant="ghost" size="icon" onClick={() => handleInvoiceAction(invoice.id, 'mark_paid')}>
+                                    <Button variant="ghost" size="icon" onClick={() => handleInvoiceAction(invoice.id, 'mark_paid')} title={t('Marquer payée', 'تحديد كمدفوعة')}>
                                       <CheckCircle className="w-4 h-4" />
                                     </Button>
                                   )}
-                                  <Button variant="ghost" size="icon" onClick={() => handleInvoiceAction(invoice.id, 'delete')}>
-                                    <Trash2 className="w-4 h-4 text-red-500" />
-                                  </Button>
+                                  {/* Delete - only for drafts */}
+                                  {invoice.status === 'draft' && (
+                                    <Button variant="ghost" size="icon" onClick={() => handleInvoiceAction(invoice.id, 'delete')} title={t('Supprimer', 'حذف')}>
+                                      <Trash2 className="w-4 h-4 text-red-500" />
+                                    </Button>
+                                  )}
                                 </div>
                               </div>
                             </div>
@@ -660,42 +930,19 @@ export default function DashboardPage() {
               <ModuleGroupPricing
                 language={language}
                 subscribedGroups={activeGroups}
-                onSubscribeGroup={(groupId) => {
-                  setActiveGroups([...activeGroups, groupId])
-                  showToast(t('Groupe activé!', 'تم تفعيل المجموعة!'))
-                }}
-                onUnsubscribeGroup={(groupId) => {
-                  if (groupId === 'core') return
-                  setActiveGroups(activeGroups.filter(g => g !== groupId))
-                  showToast(t('Groupe désactivé', 'تم تعطيل المجموعة'))
-                }}
-                onSubscribeBundle={(bundleId) => {
-                  // Find bundle and set groups
-                  const bundles = [
-                    { id: 'starter', groups: ['core'] },
-                    { id: 'business', groups: ['core', 'sales', 'accounting'] },
-                    { id: 'professional', groups: ['core', 'sales', 'accounting', 'crm', 'integrations'] },
-                    { id: 'enterprise', groups: ['core', 'sales', 'accounting', 'crm', 'stock', 'team', 'integrations', 'ai'] },
-                  ]
-                  const bundle = bundles.find(b => b.id === bundleId)
-                  if (bundle) {
-                    setActiveGroups(bundle.groups)
-                    showToast(t('Forfait activé!', 'تم تفعيل الباقة!'))
-                  }
-                }}
+                onSubscribeGroup={handleSubscribeGroup}
+                onUnsubscribeGroup={handleUnsubscribeGroup}
+                onSubscribeBundle={handleSubscribeBundle}
               />
             )}
 
             {/* ==================== SETTINGS ==================== */}
-            {currentPage === 'settings' && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>{t('Paramètres', 'الإعدادات')}</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-gray-500">{t('Les paramètres seront disponibles prochainement.', 'ستكون الإعدادات متاحة قريباً.')}</p>
-                </CardContent>
-              </Card>
+            {currentPage === 'settings' && settingsFormData && (
+              <CompanyForm
+                initialData={settingsFormData}
+                language={language}
+                onSave={handleSaveSettings}
+              />
             )}
           </div>
         </div>
@@ -746,7 +993,7 @@ export default function DashboardPage() {
 
       {/* New Invoice Dialog */}
       <Dialog open={dialogOpen === 'new-invoices'} onOpenChange={() => setDialogOpen(null)}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{t('Créer une facture', 'إنشاء فاتورة')}</DialogTitle>
           </DialogHeader>
@@ -850,6 +1097,26 @@ export default function DashboardPage() {
               </Button>
             </div>
 
+            {/* Totals */}
+            <div className="bg-gray-50 p-4 rounded-lg space-y-2">
+              <div className="flex justify-between text-sm">
+                <span>{t('Sous-total', 'المجموع الفرعي')}:</span>
+                <span>{formatCurrency(newInvoice.items.reduce((s, i) => s + (i.quantity * i.unitPrice), 0))}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span>{t('TVA', 'ضريبة القيمة المضافة')}:</span>
+                <span>{formatCurrency(newInvoice.items.reduce((s, i) => s + (i.quantity * i.unitPrice * i.tvaRate / 100), 0))}</span>
+              </div>
+              <Separator />
+              <div className="flex justify-between font-bold">
+                <span>{t('Total', 'المجموع')}:</span>
+                <span>{formatCurrency(
+                  newInvoice.items.reduce((s, i) => s + (i.quantity * i.unitPrice), 0) +
+                  newInvoice.items.reduce((s, i) => s + (i.quantity * i.unitPrice * i.tvaRate / 100), 0)
+                )}</span>
+              </div>
+            </div>
+
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>{t('Date d\'échéance', 'تاريخ الاستحقاق')}</Label>
@@ -860,7 +1127,156 @@ export default function DashboardPage() {
                 />
               </div>
             </div>
+            <div className="space-y-2">
+              <Label>{t('Notes', 'ملاحظات')}</Label>
+              <Textarea 
+                value={newInvoice.notes} 
+                onChange={e => setNewInvoice({...newInvoice, notes: e.target.value})} 
+                placeholder={t('Notes visibles sur la facture', 'ملاحظات مرئية على الفاتورة')}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDialogOpen(null)}>{t('Annuler', 'إلغاء')}</Button>
+            <Button onClick={handleCreateInvoice} className="bg-blue-600">{t('Créer', 'إنشاء')}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Invoice Dialog */}
+      <Dialog open={dialogOpen === 'edit-invoice'} onOpenChange={() => { setDialogOpen(null); setSelectedItem(null); }}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{t('Modifier la facture', 'تعديل الفاتورة')} - {selectedItem?.number}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>{t('Client', 'العميل')}</Label>
+              <Select value={newInvoice.clientId} onValueChange={v => setNewInvoice({...newInvoice, clientId: v})}>
+                <SelectTrigger>
+                  <SelectValue placeholder={t('Sélectionner un client', 'اختر عميلاً')} />
+                </SelectTrigger>
+                <SelectContent>
+                  {clients.map((client: Client) => (
+                    <SelectItem key={client.id} value={client.id}>{client.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
             
+            <div className="space-y-2">
+              <Label>{t('Articles', 'العناصر')}</Label>
+              {newInvoice.items.map((item, idx) => (
+                <div key={item.id} className="grid grid-cols-12 gap-2 items-end">
+                  <div className="col-span-5">
+                    <Input 
+                      placeholder={t('Description', 'الوصف')} 
+                      value={item.description} 
+                      onChange={e => {
+                        const items = [...newInvoice.items]
+                        items[idx].description = e.target.value
+                        setNewInvoice({...newInvoice, items})
+                      }} 
+                    />
+                  </div>
+                  <div className="col-span-2">
+                    <Input 
+                      type="number" 
+                      placeholder="Qté" 
+                      value={item.quantity} 
+                      onChange={e => {
+                        const items = [...newInvoice.items]
+                        items[idx].quantity = parseInt(e.target.value) || 0
+                        setNewInvoice({...newInvoice, items})
+                      }} 
+                    />
+                  </div>
+                  <div className="col-span-2">
+                    <Input 
+                      type="number" 
+                      placeholder="Prix" 
+                      value={item.unitPrice} 
+                      onChange={e => {
+                        const items = [...newInvoice.items]
+                        items[idx].unitPrice = parseFloat(e.target.value) || 0
+                        setNewInvoice({...newInvoice, items})
+                      }} 
+                    />
+                  </div>
+                  <div className="col-span-2">
+                    <Select 
+                      value={String(item.tvaRate)} 
+                      onValueChange={v => {
+                        const items = [...newInvoice.items]
+                        items[idx].tvaRate = parseInt(v)
+                        setNewInvoice({...newInvoice, items})
+                      }}
+                    >
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {TVA_RATES.map(rate => (
+                          <SelectItem key={rate.value} value={String(rate.value)}>{rate.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="col-span-1">
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      onClick={() => {
+                        if (newInvoice.items.length > 1) {
+                          setNewInvoice({...newInvoice, items: newInvoice.items.filter((_, i) => i !== idx)})
+                        }
+                      }}
+                    >
+                      <Trash2 className="w-4 h-4 text-red-500" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => setNewInvoice({
+                  ...newInvoice, 
+                  items: [...newInvoice.items, { id: generateId(), description: '', quantity: 1, unitPrice: 0, tvaRate: 20 }]
+                })}
+              >
+                <Plus className="w-4 h-4 mr-2" /> {t('Ajouter une ligne', 'إضافة سطر')}
+              </Button>
+            </div>
+
+            {/* Totals */}
+            <div className="bg-gray-50 p-4 rounded-lg space-y-2">
+              <div className="flex justify-between text-sm">
+                <span>{t('Sous-total', 'المجموع الفرعي')}:</span>
+                <span>{formatCurrency(newInvoice.items.reduce((s, i) => s + (i.quantity * i.unitPrice), 0))}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span>{t('TVA', 'ضريبة القيمة المضافة')}:</span>
+                <span>{formatCurrency(newInvoice.items.reduce((s, i) => s + (i.quantity * i.unitPrice * i.tvaRate / 100), 0))}</span>
+              </div>
+              <Separator />
+              <div className="flex justify-between font-bold">
+                <span>{t('Total', 'المجموع')}:</span>
+                <span>{formatCurrency(
+                  newInvoice.items.reduce((s, i) => s + (i.quantity * i.unitPrice), 0) +
+                  newInvoice.items.reduce((s, i) => s + (i.quantity * i.unitPrice * i.tvaRate / 100), 0)
+                )}</span>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>{t('Date d\'échéance', 'تاريخ الاستحقاق')}</Label>
+                <Input 
+                  type="date" 
+                  value={newInvoice.dueDate} 
+                  onChange={e => setNewInvoice({...newInvoice, dueDate: e.target.value})} 
+                />
+              </div>
+            </div>
             <div className="space-y-2">
               <Label>{t('Notes', 'ملاحظات')}</Label>
               <Textarea 
@@ -870,8 +1286,8 @@ export default function DashboardPage() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDialogOpen(null)}>{t('Annuler', 'إلغاء')}</Button>
-            <Button onClick={handleCreateInvoice} className="bg-blue-600">{t('Créer', 'إنشاء')}</Button>
+            <Button variant="outline" onClick={() => { setDialogOpen(null); setSelectedItem(null); }}>{t('Annuler', 'إلغاء')}</Button>
+            <Button onClick={handleEditInvoice} className="bg-blue-600">{t('Enregistrer', 'حفظ')}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -893,9 +1309,10 @@ export default function DashboardPage() {
             </div>
             <div className="space-y-2">
               <Label>{t('Description *', 'الوصف *')}</Label>
-              <Input 
+              <Textarea 
                 value={newPaymentLink.description} 
                 onChange={e => setNewPaymentLink({...newPaymentLink, description: e.target.value})} 
+                placeholder={t('Ex: Facture #123', 'مثال: فاتورة #123')}
               />
             </div>
             <div className="grid grid-cols-2 gap-4">
@@ -908,10 +1325,11 @@ export default function DashboardPage() {
                 />
               </div>
               <div className="space-y-2">
-                <Label>{t('Téléphone', 'الهاتف')}</Label>
+                <Label>{t('Téléphone client', 'هاتف العميل')}</Label>
                 <Input 
                   value={newPaymentLink.clientPhone} 
                   onChange={e => setNewPaymentLink({...newPaymentLink, clientPhone: e.target.value})} 
+                  placeholder="+212 6XX XX XX XX"
                 />
               </div>
             </div>
@@ -926,10 +1344,12 @@ export default function DashboardPage() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDialogOpen(null)}>{t('Annuler', 'إلغاء')}</Button>
-            <Button onClick={handleCreatePaymentLink} className="bg-purple-600">{t('Créer le lien', 'إنشاء الرابط')}</Button>
+            <Button onClick={handleCreatePaymentLink} className="bg-purple-600">{t('Créer', 'إنشاء')}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
   )
 }
+
+export default DashboardPage

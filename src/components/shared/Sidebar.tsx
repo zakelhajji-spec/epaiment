@@ -10,7 +10,7 @@ import {
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { MODULES_CONFIG } from '@/lib/modules.config'
+import { MODULE_GROUPS, getModulesForGroups } from '@/lib/module-groups.config'
 import type { Language } from '@/lib/modules/types'
 
 // Icon map for dynamic icon rendering
