@@ -156,10 +156,12 @@ export function checkTenantRateLimit(
   return { allowed: true, remaining: maxRequests - limit.count, resetIn: limit.resetAt - now }
 }
 
-export default {
+const tenantUtils = {
   getTenantId,
   requireTenantId,
   tenantQuery,
   verifyTenantAccess,
   checkTenantRateLimit,
 }
+
+export default tenantUtils

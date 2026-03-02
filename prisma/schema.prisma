@@ -25,6 +25,9 @@ model User {
   passwordHash  String?
   image         String?
   
+  // Role: user, admin, superadmin
+  role          String   @default("user")
+  
   // DGI 2026 Company Information
   companyName      String?
   companyIce       String?
@@ -51,6 +54,9 @@ model User {
   // Subscription
   subscriptionPlan  String   @default("starter")
   
+  // Account Status
+  accountStatus   String   @default("active") // active, suspended, deleted
+  
   // Security
   twoFactorEnabled  Boolean  @default(false)
   twoFactorSecret   String?
@@ -71,6 +77,8 @@ model User {
   usageRecords     UsageRecord[]
 
   @@index([email])
+  @@index([role])
+  @@index([accountStatus])
 }
 
 model Account {
