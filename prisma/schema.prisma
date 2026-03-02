@@ -1,7 +1,7 @@
 // ===========================================
 // Epaiement.ma - Production Database Schema
 // ===========================================
-// SQLite for development, PostgreSQL for production
+// PostgreSQL for production (Vercel), SQLite for local dev
 // Comprehensive schema for modular architecture
 
 generator client {
@@ -9,8 +9,9 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_DATABASE_URL")
 }
 
 // ===========================================
