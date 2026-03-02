@@ -5,7 +5,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useSession } from 'next-auth/react'
-import { invoiceApi, paymentLinkApi, settingsApi, subscriptionApi } from '@/lib/api/client'
+import { invoiceApi, paymentLinkApi, settingsApi, subscriptionApi, clientApi } from '@/lib/api/client'
 
 // Types
 export interface Client {
@@ -121,6 +121,12 @@ interface UseApiDataReturn {
   
   // Subscription actions
   activatePlan: (planId: string, interval?: string) => Promise<{ success: boolean; subscription?: Subscription; error?: string }>
+  
+  // Client actions
+  fetchClients: () => Promise<void>
+  createClient: (data: unknown) => Promise<{ success: boolean; client?: Client; error?: string }>
+  updateClient: (id: string, data: unknown) => Promise<{ success: boolean; client?: Client; error?: string }>
+  deleteClient: (id: string) => Promise<{ success: boolean; error?: string }>
 }
 
 export function useApiData(): UseApiDataReturn {
@@ -346,6 +352,46 @@ export function useApiData(): UseApiDataReturn {
     return { success: false, error: result.error }
   }, [])
   
+  // Client actions
+  const fetchClients = useCallback(async () => {
+    if (!isAuthenticated) return
+    try {
+      const result = await clientApi.list()
+      if (result.data) {
+        setClients(result.data.clients)
+      }
+    } catch (err) {
+      // Silent fail
+    }
+  }, [isAuthenticated])
+  
+  const createClient = useCallback(async (data: unknown) => {
+    const result = await clientApi.create(data)
+    if (result.data) {
+      setClients(prev => [result.data as Client, ...prev])
+      return { success: true, client: result.data as Client }
+    }
+    return { success: false, error: result.error }
+  }, [])
+  
+  const updateClient = useCallback(async (id: string, data: unknown) => {
+    const result = await clientApi.update(id, data)
+    if (result.data) {
+      setClients(prev => prev.map(c => c.id === id ? result.data as Client : c))
+      return { success: true, client: result.data as Client }
+    }
+    return { success: false, error: result.error }
+  }, [])
+  
+  const deleteClient = useCallback(async (id: string) => {
+    const result = await clientApi.delete(id)
+    if (result.data?.success) {
+      setClients(prev => prev.filter(c => c.id !== id))
+      return { success: true }
+    }
+    return { success: false, error: result.error }
+  }, [])
+  
   return {
     invoices,
     paymentLinks,
@@ -371,6 +417,10 @@ export function useApiData(): UseApiDataReturn {
     deletePaymentLink,
     updateSettings,
     activatePlan,
+    fetchClients,
+    createClient,
+    updateClient,
+    deleteClient,
   }
 }
 

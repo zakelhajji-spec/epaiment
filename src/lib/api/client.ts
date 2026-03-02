@@ -143,4 +143,37 @@ export const subscriptionApi = {
     api.put<any>('/subscription', { reason }),
 }
 
+// Client API
+export const clientApi = {
+  list: (params?: { search?: string; limit?: string }) => 
+    api.get<{ clients: any[] }>('/clients', params),
+  
+  get: (id: string) => 
+    api.get<any>(`/clients/${id}`),
+  
+  create: (data: any) => 
+    api.post<any>('/clients', data),
+  
+  update: (id: string, data: any) => 
+    api.put<any>(`/clients/${id}`, data),
+  
+  delete: (id: string) => 
+    api.delete<{ success: boolean }>(`/clients/${id}`),
+}
+
+// Reports API
+export const reportsApi = {
+  overview: (params?: { startDate?: string; endDate?: string }) => 
+    api.get<any>('/reports', { type: 'overview', ...params }),
+  
+  tva: (params?: { startDate?: string; endDate?: string }) => 
+    api.get<any>('/reports', { type: 'tva', ...params }),
+  
+  revenue: (params?: { startDate?: string; endDate?: string }) => 
+    api.get<any>('/reports', { type: 'revenue', ...params }),
+  
+  clients: (params?: { startDate?: string; endDate?: string }) => 
+    api.get<any>('/reports', { type: 'clients', ...params }),
+}
+
 export default api
