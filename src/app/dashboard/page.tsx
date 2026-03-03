@@ -638,9 +638,9 @@ export default function DashboardPage() {
   // Loading state
   if (status === 'loading') {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="w-16 h-16 bg-gradient-to-br from-blue-600 to-emerald-500 rounded-2xl flex items-center justify-center text-white font-bold text-2xl mx-auto mb-4 animate-pulse">
+          <div className="w-16 h-16 bg-gradient-to-br from-violet-600 to-fuchsia-500 rounded-2xl flex items-center justify-center text-white font-bold text-2xl mx-auto mb-4 animate-pulse shadow-lg shadow-violet-500/30">
             E
           </div>
           <p className="text-gray-500">{t('Chargement...', 'جاري التحميل...')}</p>
@@ -738,7 +738,7 @@ export default function DashboardPage() {
                   />
                 </div>
                 {['invoices', 'clients', 'payment-links', 'leads', 'tasks', 'suppliers', 'quotes', 'expenses', 'credit-notes', 'products', 'team', 'api-keys'].includes(currentPage) && (
-                  <Button onClick={() => setDialogOpen(`new-${currentPage}`)} className="bg-blue-600 hover:bg-blue-700">
+                  <Button onClick={() => setDialogOpen(`new-${currentPage}`)} className="bg-gradient-to-r from-violet-600 to-fuchsia-500 hover:from-violet-700 hover:to-fuchsia-600 shadow-lg shadow-violet-500/30">
                     <Plus className="w-4 h-4 mr-2" /><span className="hidden sm:inline">{t('Nouveau', 'جديد')}</span>
                   </Button>
                 )}
@@ -794,10 +794,10 @@ export default function DashboardPage() {
                       <div className="flex items-center justify-between">
                         <div>
                           <p className="text-sm text-gray-500">{t('Clients', 'العملاء')}</p>
-                          <p className="text-xl font-bold text-blue-600">{metrics.activeClients}</p>
+                          <p className="text-xl font-bold text-violet-600">{metrics.activeClients}</p>
                         </div>
-                        <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                          <Users className="w-5 h-5 text-blue-600" />
+                        <div className="w-10 h-10 bg-violet-100 rounded-full flex items-center justify-center">
+                          <Users className="w-5 h-5 text-violet-600" />
                         </div>
                       </div>
                     </CardContent>
@@ -820,9 +820,9 @@ export default function DashboardPage() {
                         <button 
                           key={i} 
                           onClick={action.action} 
-                          className="flex flex-col items-center gap-2 p-4 rounded-xl border-2 border-dashed border-gray-200 hover:border-blue-300 hover:bg-blue-50 transition-colors"
+                          className="flex flex-col items-center gap-2 p-4 rounded-xl border-2 border-dashed border-gray-200 hover:border-violet-300 hover:bg-violet-50 transition-colors"
                         >
-                          <action.icon className="w-8 h-8 text-blue-500" />
+                          <action.icon className="w-8 h-8 text-violet-500" />
                           <span className="text-sm font-medium text-gray-700 text-center">{action.label}</span>
                         </button>
                       ))}
@@ -837,9 +837,9 @@ export default function DashboardPage() {
                   </CardHeader>
                   <CardContent>
                     <div className="grid grid-cols-3 gap-4 text-center">
-                      <div className="p-4 bg-blue-50 rounded-lg">
+                      <div className="p-4 bg-violet-50 rounded-lg">
                         <p className="text-sm text-gray-500">{t('TVA Collectée', 'ضريبة القيمة المضافة المحصلة')}</p>
-                        <p className="text-xl font-bold text-blue-600">{formatCurrency(metrics.tvaCollected)}</p>
+                        <p className="text-xl font-bold text-violet-600">{formatCurrency(metrics.tvaCollected)}</p>
                       </div>
                       <div className="p-4 bg-green-50 rounded-lg">
                         <p className="text-sm text-gray-500">{t('TVA Déductible', 'ضريبة القيمة المضافة القابلة للخصم')}</p>
@@ -871,7 +871,7 @@ export default function DashboardPage() {
                         <div className="text-center py-16">
                           <FileText className="w-12 h-12 text-gray-300 mx-auto mb-4" />
                           <p className="text-gray-500 mb-4">{t('Aucune facture', 'لا توجد فواتير')}</p>
-                          <Button onClick={() => setDialogOpen('new-invoices')} className="bg-blue-600">
+                          <Button onClick={() => setDialogOpen('new-invoices')} className="bg-gradient-to-r from-violet-600 to-fuchsia-500">
                             {t('Créer une facture', 'إنشاء فاتورة')}
                           </Button>
                         </div>
@@ -880,8 +880,8 @@ export default function DashboardPage() {
                           {invoices.map((invoice: Invoice) => (
                             <div key={invoice.id} className="flex items-center justify-between p-4 hover:bg-gray-50">
                               <div className="flex items-center gap-4">
-                                <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                                  <FileText className="w-5 h-5 text-blue-600" />
+                                <div className="w-10 h-10 bg-violet-100 rounded-lg flex items-center justify-center">
+                                  <FileText className="w-5 h-5 text-violet-600" />
                                 </div>
                                 <div>
                                   <p className="font-medium">{invoice.number}</p>
@@ -1021,7 +1021,7 @@ export default function DashboardPage() {
                         <div className="text-center py-16">
                           <Users className="w-12 h-12 text-gray-300 mx-auto mb-4" />
                           <p className="text-gray-500 mb-4">{t('Aucun client', 'لا يوجد عملاء')}</p>
-                          <Button onClick={() => setDialogOpen('new-clients')} className="bg-blue-600">
+                          <Button onClick={() => setDialogOpen('new-clients')} className="bg-gradient-to-r from-violet-600 to-fuchsia-500">
                             {t('Ajouter un client', 'إضافة عميل')}
                           </Button>
                         </div>
@@ -1387,7 +1387,7 @@ export default function DashboardPage() {
                   </Card>
                   <Card className="cursor-pointer hover:border-amber-300 transition-colors">
                     <CardContent className="p-6 text-center">
-                      <Wallet className="w-10 h-10 text-blue-600 mx-auto mb-3" />
+                      <Wallet className="w-10 h-10 text-violet-600 mx-auto mb-3" />
                       <p className="font-medium">{t('Flux de Trésorerie', 'التدفقات النقدية')}</p>
                       <p className="text-sm text-gray-500">{t('Entrées/Sorties', 'المدخلات/المخرجات')}</p>
                     </CardContent>
@@ -1407,9 +1407,9 @@ export default function DashboardPage() {
                   </CardHeader>
                   <CardContent>
                     <div className="grid grid-cols-3 gap-4 text-center">
-                      <div className="p-4 bg-blue-50 rounded-lg">
+                      <div className="p-4 bg-violet-50 rounded-lg">
                         <p className="text-sm text-gray-500">{t('TVA Collectée', 'الضريبة المحصلة')}</p>
-                        <p className="text-2xl font-bold text-blue-600">{formatCurrency(metrics.tvaCollected)}</p>
+                        <p className="text-2xl font-bold text-violet-600">{formatCurrency(metrics.tvaCollected)}</p>
                       </div>
                       <div className="p-4 bg-green-50 rounded-lg">
                         <p className="text-sm text-gray-500">{t('TVA Déductible', 'الضريبة القابلة للخصم')}</p>
@@ -1761,7 +1761,7 @@ export default function DashboardPage() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDialogOpen(null)}>{t('Annuler', 'إلغاء')}</Button>
-            <Button onClick={handleCreateClient} className="bg-blue-600">{t('Créer', 'إنشاء')}</Button>
+            <Button onClick={handleCreateClient} className="bg-gradient-to-r from-violet-600 to-fuchsia-500 hover:from-violet-700 hover:to-fuchsia-600 shadow-lg shadow-violet-500/30">{t('Créer', 'إنشاء')}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -1913,7 +1913,7 @@ export default function DashboardPage() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDialogOpen(null)}>{t('Annuler', 'إلغاء')}</Button>
-            <Button onClick={handleCreateInvoice} className="bg-blue-600">{t('Créer', 'إنشاء')}</Button>
+            <Button onClick={handleCreateInvoice} className="bg-gradient-to-r from-violet-600 to-fuchsia-500 hover:from-violet-700 hover:to-fuchsia-600 shadow-lg shadow-violet-500/30">{t('Créer', 'إنشاء')}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -2062,7 +2062,7 @@ export default function DashboardPage() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => { setDialogOpen(null); setSelectedItem(null); }}>{t('Annuler', 'إلغاء')}</Button>
-            <Button onClick={handleEditInvoice} className="bg-blue-600">{t('Enregistrer', 'حفظ')}</Button>
+            <Button onClick={handleEditInvoice} className="bg-gradient-to-r from-violet-600 to-fuchsia-500 hover:from-violet-700 hover:to-fuchsia-600 shadow-lg shadow-violet-500/30">{t('Enregistrer', 'حفظ')}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

@@ -235,7 +235,7 @@ export function Sidebar({
                     isMobile ? 'text-base py-3' : 'text-sm py-2'
                   } ${
                     isActive
-                      ? 'bg-blue-50 text-blue-600 font-medium'
+                      ? 'bg-violet-50 text-violet-600 font-medium'
                       : 'text-gray-600 hover:bg-gray-100'
                   }`}
                   title={collapsed ? t(item.label, item.labelAr) : undefined}
@@ -271,12 +271,12 @@ export function Sidebar({
         {/* Header */}
         <div className="p-3 flex items-center justify-between border-b border-gray-200 flex-shrink-0">
           {!collapsed && (
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-emerald-500 rounded-lg flex items-center justify-center text-white font-bold text-sm">
+            <a href="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
+              <div className="w-8 h-8 bg-gradient-to-br from-violet-600 to-fuchsia-500 rounded-lg flex items-center justify-center text-white font-bold text-sm shadow-lg shadow-violet-500/30">
                 E
               </div>
               <span className="font-semibold text-gray-800 text-sm">Epaiement.ma</span>
-            </div>
+            </a>
           )}
           <Button
             variant="ghost"
@@ -316,12 +316,12 @@ export function Sidebar({
 
       {/* Mobile Header */}
       <header className="lg:hidden fixed top-0 left-0 right-0 z-40 bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-emerald-500 rounded-lg flex items-center justify-center text-white font-bold text-sm">
+        <a href="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
+          <div className="w-8 h-8 bg-gradient-to-br from-violet-600 to-fuchsia-500 rounded-lg flex items-center justify-center text-white font-bold text-sm shadow-lg shadow-violet-500/30">
             E
           </div>
           <span className="font-semibold text-gray-800">Epaiement.ma</span>
-        </div>
+        </a>
         <div className="flex items-center gap-1">
           <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => onLanguageChange(isRTL ? 'fr' : 'ar')}>
             <Globe className="w-5 h-5" />
@@ -352,12 +352,12 @@ export function Sidebar({
       >
         {/* Drawer Header */}
         <div className="sticky top-0 bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between z-10">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-emerald-500 rounded-lg flex items-center justify-center text-white font-bold text-sm">
+          <a href="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
+            <div className="w-8 h-8 bg-gradient-to-br from-violet-600 to-fuchsia-500 rounded-lg flex items-center justify-center text-white font-bold text-sm shadow-lg shadow-violet-500/30">
               E
             </div>
             <span className="font-semibold text-gray-800">Epaiement.ma</span>
-          </div>
+          </a>
           <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setMobileOpen(false)}>
             <X className="w-5 h-5" />
           </Button>
@@ -408,12 +408,12 @@ export function Sidebar({
               onClick={() => handleNavigate(id)}
               className={`flex flex-col items-center justify-center px-3 py-1.5 rounded-lg transition-colors min-w-[60px] ${
                 isActive 
-                  ? 'text-blue-600' 
+                  ? 'text-violet-600' 
                   : 'text-gray-500 hover:text-gray-700'
               }`}
             >
-              <Icon className={`w-5 h-5 ${isActive ? 'text-blue-600' : ''}`} />
-              <span className={`text-xs mt-0.5 truncate max-w-[60px] ${isActive ? 'font-medium text-blue-600' : ''}`}>
+              <Icon className={`w-5 h-5 ${isActive ? 'text-violet-600' : ''}`} />
+              <span className={`text-xs mt-0.5 truncate max-w-[60px] ${isActive ? 'font-medium text-violet-600' : ''}`}>
                 {t(item.label.split(' ')[0], item.labelAr.split(' ')[0])}
               </span>
             </button>

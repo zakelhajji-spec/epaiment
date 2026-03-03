@@ -68,7 +68,7 @@ export function Header({
         {/* Right side */}
         <div className="flex items-center gap-3">
           {/* DGI 2026 Badge */}
-          <Badge variant="outline" className="hidden sm:flex items-center gap-1 bg-emerald-50 text-emerald-700 border-emerald-200">
+          <Badge variant="outline" className="hidden sm:flex items-center gap-1 bg-violet-50 text-violet-700 border-violet-200">
             <Sparkles className="w-3 h-3" />
             DGI 2026
           </Badge>
@@ -116,8 +116,8 @@ export function Header({
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" className="flex items-center gap-2">
-                <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                  <span className="text-sm font-medium text-blue-600">
+                <div className="w-8 h-8 bg-gradient-to-br from-violet-600 to-fuchsia-500 rounded-full flex items-center justify-center shadow-lg shadow-violet-500/30">
+                  <span className="text-sm font-medium text-white">
                     {user.name.charAt(0).toUpperCase()}
                   </span>
                 </div>

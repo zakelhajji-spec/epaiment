@@ -542,20 +542,6 @@ export default function LandingPage() {
         <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-white to-transparent" />
       </section>
 
-      {/* Trusted By Section */}
-      <section className="py-16 bg-white border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <p className="text-center text-sm text-slate-500 mb-8">{t.trustedBy}</p>
-          <div className="flex flex-wrap justify-center items-center gap-8 lg:gap-16 opacity-50">
-            {['CIH Bank', 'Attijariwafa', 'Banque Populaire', 'BMCE', 'CDG Capital'].map((bank, i) => (
-              <div key={i} className="text-slate-400 font-bold text-xl">
-                {bank}
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
       {/* Features Section */}
       <section id="features" className="py-24 bg-slate-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
