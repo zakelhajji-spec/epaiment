@@ -170,6 +170,13 @@ export interface AuditLog {
 }
 
 // Form Types
+export interface NewInvoiceForm {
+  clientId: string
+  items: InvoiceLineItem[]
+  dueDate: string
+  notes: string
+}
+
 export interface NewClientForm {
   name: string
   ice: string

@@ -1,2 +1,10 @@
 // Page Components
 export { DashboardHome } from './DashboardHome'
+export { InvoicesPage } from './InvoicesPage'
+export { ClientsPage } from './ClientsPage'
+export { PaymentLinksPage } from './PaymentLinksPage'
+export { CRMPages } from './CRMPages'
+export { SalesPages } from './SalesPages'
+export { AccountingPages } from './AccountingPages'
+export { StockPages } from './StockPages'
+export { TeamIntegrationPages } from './TeamIntegrationPages'

@@ -1,2 +1,4 @@
-// Dialogs
-export { ClientDialog } from './dialogs/ClientDialog'
+// Dialog Components
+export { ClientDialog } from './ClientDialog'
+export { InvoiceDialog } from './InvoiceDialog'
+export { PaymentLinkDialog } from './PaymentLinkDialog'

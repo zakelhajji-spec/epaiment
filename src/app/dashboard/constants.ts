@@ -44,3 +44,27 @@ export const PAYMENT_LINK_STATUS_LABELS = {
   paid: { fr: 'Payé', ar: 'مدفوع' },
   expired: { fr: 'Expiré', ar: 'منتهي' },
 } as const
+
+// Page titles
+export const PAGE_TITLES: Record<string, { fr: string; ar: string }> = {
+  dashboard: { fr: 'Tableau de bord', ar: 'لوحة التحكم' },
+  invoices: { fr: 'Factures', ar: 'الفواتير' },
+  'payment-links': { fr: 'Liens de paiement', ar: 'روابط الدفع' },
+  clients: { fr: 'Clients', ar: 'العملاء' },
+  modules: { fr: 'Modules', ar: 'الوحدات' },
+  settings: { fr: 'Paramètres', ar: 'الإعدادات' },
+  leads: { fr: 'Prospects', ar: 'العملاء المحتملين' },
+  tasks: { fr: 'Tâches', ar: 'المهام' },
+  suppliers: { fr: 'Fournisseurs', ar: 'الموردين' },
+  quotes: { fr: 'Devis', ar: 'العروض' },
+  expenses: { fr: 'Dépenses', ar: 'المصروفات' },
+  'credit-notes': { fr: 'Avoirs', ar: 'إشعارات دائنة' },
+  reports: { fr: 'Rapports', ar: 'التقارير' },
+  products: { fr: 'Produits', ar: 'المنتجات' },
+  inventory: { fr: 'Inventaire', ar: 'المخزون' },
+  team: { fr: 'Équipe', ar: 'الفريق' },
+  'api-keys': { fr: 'Clés API', ar: 'مفاتيح API' },
+  gateways: { fr: 'Passerelles', ar: 'البوابات' },
+  audit: { fr: 'Audit', ar: 'التدقيق' },
+  'ai-lead-qualifier': { fr: 'AI Lead', ar: 'AI Lead' },
+}
