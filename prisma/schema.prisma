@@ -1,0 +1,890 @@
+// ===========================================
+// Epaiement.ma - Production Schema (PostgreSQL)
+// ===========================================
+// This schema is used for Vercel deployment
+// For local development, use schema.sqlite
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ===========================================
+// User & Authentication
+// ===========================================
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  emailVerified DateTime?
+  name          String?
+  passwordHash  String?
+  image         String?
+  
+  // Role: user, admin, superadmin
+  role          String   @default("user")
+  
+  // DGI 2026 Company Information
+  companyName      String?
+  companyIce       String?
+  companyIf        String?
+  companyRc        String?
+  companyPatente   String?
+  companyCnss      String?
+  companyLegalForm String?
+  companyCapital   String?
+  companyTvaNumber String?
+  companyAddress   String?
+  companyCity      String?
+  companyPhone     String?
+  
+  // Account Settings
+  autoEntrepreneur   Boolean  @default(false)
+  defaultTvaRate     Float    @default(20)
+  invoicePrefix      String   @default("FA")
+  quotePrefix        String   @default("DV")
+  creditNotePrefix   String   @default("AV")
+  defaultCurrency    String   @default("MAD")
+  language           String   @default("fr")
+  
+  // Subscription
+  subscriptionPlan  String   @default("starter")
+  
+  // Account Status
+  accountStatus   String   @default("active") // active, suspended, deleted
+  
+  // Security
+  twoFactorEnabled  Boolean  @default(false)
+  twoFactorSecret   String?
+  
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  lastLogin DateTime?
+  
+  // Relations
+  accounts         Account[]
+  sessions         Session[]
+  clients          Client[]
+  invoices         Invoice[]
+  paymentLinks     PaymentLink[]
+  auditLogs        AuditLog[]
+  subscription     Subscription?
+  usageRecords     UsageRecord[]
+  paymentGateways  PaymentGateway[]
+  apiKeys          ApiKey[]
+  notifications    Notification[]
+  
+  // New relations
+  suppliers        Supplier[]
+  quotes           Quote[]
+  expenses         Expense[]
+  creditNotes      CreditNote[]
+  leads            Lead[]
+  tasks            Task[]
+  products         Product[]
+  teamMembers      TeamMember[]
+
+  @@index([email])
+  @@index([role])
+  @@index([accountStatus])
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// ===========================================
+// Clients
+// ===========================================
+
+model Client {
+  id        String   @id @default(cuid())
+  userId    String
+  name      String
+  ice       String?
+  email     String
+  phone     String?
+  address   String?
+  city      String?
+  postalCode String?
+  country   String   @default("Maroc")
+  ifNumber  String?
+  rcNumber  String?
+  notes     String?
+  
+  totalInvoices  Int     @default(0)
+  totalAmount    Float   @default(0)
+  totalPaid      Float   @default(0)
+  balance        Float   @default(0)
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  invoices    Invoice[]
+  quotes      Quote[]
+  creditNotes CreditNote[]
+  leads       Lead[]
+
+  @@index([userId])
+  @@index([email])
+}
+
+// ===========================================
+// Invoices
+// ===========================================
+
+model Invoice {
+  id        String   @id @default(cuid())
+  userId    String
+  clientId  String
+  number    String
+  
+  // Items stored as JSON for backward compatibility
+  itemsJson  String?
+  
+  subtotal    Float
+  discountPercent Float @default(0)
+  discountAmount  Float @default(0)
+  tvaAmount   Float
+  total       Float
+  amountPaid  Float   @default(0)
+  balance     Float   @default(0)
+  
+  status      String  @default("draft")
+  
+  issueDate   DateTime @default(now())
+  dueDate     DateTime
+  sentAt      DateTime?
+  viewedAt    DateTime?
+  paidAt      DateTime?
+  
+  isRecurring       Boolean  @default(false)
+  recurringFrequency String?
+  
+  notes       String?
+  internalNotes String?
+  qrCode      String?
+  dgiQrCode   String?   // DGI 2026 QR Code (base64)
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  client      Client        @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  payments    Payment[]
+  items       InvoiceItem[]
+
+  @@unique([userId, number])
+  @@index([userId])
+  @@index([clientId])
+  @@index([status])
+}
+
+model Payment {
+  id        String   @id @default(cuid())
+  invoiceId String
+  
+  amount    Float
+  method    String
+  reference String?
+  paidAt    DateTime @default(now())
+  notes     String?
+  
+  createdAt DateTime @default(now())
+  
+  invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@index([invoiceId])
+}
+
+// ===========================================
+// Payment Links
+// ===========================================
+
+model PaymentLink {
+  id          String   @id @default(cuid())
+  userId      String
+  
+  amount      Float
+  description String
+  clientName  String?
+  clientEmail String?
+  clientPhone String?
+  reference   String   @unique
+  
+  status      String   @default("pending")
+  dueDate     DateTime?
+  expiresAt   DateTime?
+  paidAt      DateTime?
+  
+  gatewayName      String?
+  gatewayPaymentId String?
+  gatewayFee       Float   @default(0)
+  
+  paymentUrl String?
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([status])
+  @@index([reference])
+}
+
+// ===========================================
+// Audit Logs
+// ===========================================
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  
+  action    String
+  resource  String
+  resourceId String?
+  
+  ipAddress String?
+  userAgent String?
+  
+  oldValues String?
+  newValues String?
+  details   String?
+  
+  status    String   @default("success")
+  
+  createdAt DateTime @default(now())
+  
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([action])
+  @@index([resource])
+}
+
+// ===========================================
+// Subscription & Module Groups
+// ===========================================
+
+model Subscription {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  
+  // Plan (starter, business, professional, enterprise)
+  plan      String   @default("starter")
+  
+  // Active module groups (JSON array of group IDs)
+  activeGroups String @default("[]")
+  
+  // Billing
+  price     Float    @default(0)
+  billingCycle String @default("monthly") // monthly or annual
+  status    String   @default("active") // active, canceled, expired, trial
+  
+  // Dates
+  currentPeriodStart DateTime @default(now())
+  currentPeriodEnd   DateTime?
+  trialEnd           DateTime?
+  canceledAt         DateTime?
+  
+  // Payment info
+  paymentMethodId    String?
+  lastPaymentDate    DateTime?
+  nextPaymentDate    DateTime?
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([status])
+}
+
+// ===========================================
+// Usage Tracking
+// ===========================================
+
+model UsageRecord {
+  id        String   @id @default(cuid())
+  userId    String
+  
+  // Resource being tracked
+  resource  String   // invoices, payment_links, clients, etc.
+  action    String   // create, update, delete
+  
+  // Count
+  count     Int      @default(1)
+  
+  // Period
+  periodStart DateTime
+  periodEnd   DateTime
+  
+  createdAt DateTime @default(now())
+  
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, resource, periodStart])
+  @@index([userId])
+  @@index([resource])
+}
+
+// ===========================================
+// Payment Gateways Configuration
+// ===========================================
+
+model PaymentGateway {
+  id          String   @id @default(cuid())
+  userId      String
+  
+  // Gateway identifier (cmi, cih_pay, fatourati, custom)
+  gatewayId   String
+  
+  // Status
+  enabled     Boolean  @default(false)
+  testMode    Boolean  @default(true)
+  
+  // Encrypted configuration (JSON string encrypted with AES-256-GCM)
+  configEnc   String
+  
+  // Webhook secret for signature verification
+  webhookSecret String?
+  
+  // Statistics
+  totalPayments  Int     @default(0)
+  totalAmount    Float   @default(0)
+  totalFees      Float   @default(0)
+  lastUsedAt     DateTime?
+  
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, gatewayId])
+  @@index([userId])
+  @@index([gatewayId])
+}
+
+// ===========================================
+// API Keys
+// ===========================================
+
+model ApiKey {
+  id          String   @id @default(cuid())
+  userId      String
+  
+  // Key details
+  key         String   @unique
+  name        String
+  prefix      String   // First 8 characters for display
+  
+  // Permissions (JSON array of permission strings)
+  permissions String
+  
+  // Status
+  active      Boolean  @default(true)
+  
+  // Usage tracking
+  lastUsedAt  DateTime?
+  usageCount  Int      @default(0)
+  
+  // Optional expiration
+  expiresAt   DateTime?
+  
+  // Timestamps
+  createdAt DateTime @default(now())
+  revokedAt DateTime?
+  
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([key])
+}
+
+// ===========================================
+// Notifications
+// ===========================================
+
+model Notification {
+  id          String   @id @default(cuid())
+  userId      String
+  
+  // Notification details
+  type        String   // payment_received, invoice_overdue, etc.
+  title       String
+  message     String
+  
+  // Related entity
+  entityType  String?  // invoice, payment_link, client
+  entityId    String?
+  
+  // Priority and status
+  priority    String   @default("normal") // low, normal, high
+  read        Boolean  @default(false)
+  readAt      DateTime?
+  
+  // Additional data (JSON)
+  data        String?
+  
+  // Timestamps
+  createdAt DateTime @default(now())
+  
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([read])
+  @@index([type])
+  @@index([createdAt])
+}
+
+// ===========================================
+// Invoice Items (Normalized)
+// ===========================================
+
+model InvoiceItem {
+  id          String   @id @default(cuid())
+  invoiceId   String
+  
+  description String
+  quantity    Float
+  unitPrice   Float
+  tvaRate     Float
+  
+  // Calculated fields
+  lineTotal   Float    @default(0)
+  lineTva     Float    @default(0)
+  
+  // Optional link to product
+  productId   String?
+  
+  createdAt DateTime @default(now())
+  
+  invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@index([invoiceId])
+}
+
+// ===========================================
+// Suppliers
+// ===========================================
+
+model Supplier {
+  id        String   @id @default(cuid())
+  userId    String
+  
+  name      String
+  ice       String?
+  ifNumber  String?
+  rcNumber  String?
+  email     String?
+  phone     String?
+  address   String?
+  city      String?
+  
+  // Bank details
+  bankName    String?
+  bankAccount String?
+  rib         String?  // 24 digits
+  
+  notes     String?
+  
+  // Stats
+  totalPurchases  Float @default(0)
+  totalPaid       Float @default(0)
+  balance         Float @default(0)
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expenses Expense[]
+  quotes   Quote[]
+
+  @@index([userId])
+  @@index([email])
+}
+
+// ===========================================
+// Quotes (Devis)
+// ===========================================
+
+model Quote {
+  id        String   @id @default(cuid())
+  userId    String
+  clientId  String?
+  supplierId String?
+  
+  number    String
+  
+  // Items stored as JSON
+  itemsJson String?
+  
+  subtotal    Float
+  discountPercent Float @default(0)
+  discountAmount  Float @default(0)
+  tvaAmount   Float
+  total       Float
+  
+  status      String  @default("draft") // draft, sent, accepted, rejected, expired, converted
+  
+  issueDate   DateTime @default(now())
+  validUntil  DateTime?
+  sentAt      DateTime?
+  acceptedAt  DateTime?
+  rejectedAt  DateTime?
+  convertedAt DateTime?
+  
+  // Link to converted invoice
+  invoiceId   String?
+  
+  notes       String?
+  internalNotes String?
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  user     User?      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  client   Client?    @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  supplier Supplier?  @relation(fields: [supplierId], references: [id], onDelete: SetNull)
+  items    QuoteItem[]
+
+  @@unique([userId, number])
+  @@index([userId])
+  @@index([status])
+}
+
+model QuoteItem {
+  id          String   @id @default(cuid())
+  quoteId     String
+  
+  description String
+  quantity    Float
+  unitPrice   Float
+  tvaRate     Float
+  
+  lineTotal   Float @default(0)
+  lineTva     Float @default(0)
+  
+  productId   String?
+  
+  createdAt DateTime @default(now())
+  
+  quote Quote @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+
+  @@index([quoteId])
+}
+
+// ===========================================
+// Expenses (Dépenses)
+// ===========================================
+
+model Expense {
+  id        String   @id @default(cuid())
+  userId    String
+  supplierId String?
+  
+  description String
+  amount      Float
+  category    String  // rent, utilities, supplies, travel, salaries, other
+  
+  date        DateTime @default(now())
+  
+  // TVA
+  tvaRate     Float  @default(0)
+  tvaAmount   Float  @default(0)
+  tvaDeductible Boolean @default(true)
+  
+  // Payment
+  paymentMethod String?
+  paymentReference String?
+  paidAt       DateTime?
+  
+  // Receipt
+  receiptUrl   String?
+  
+  notes        String?
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  user     User?      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  supplier Supplier?  @relation(fields: [supplierId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([category])
+  @@index([date])
+}
+
+// ===========================================
+// Credit Notes (Avoirs)
+// ===========================================
+
+model CreditNote {
+  id        String   @id @default(cuid())
+  userId    String
+  clientId  String
+  
+  number    String
+  
+  // Items stored as JSON
+  itemsJson String?
+  
+  subtotal    Float
+  tvaAmount   Float
+  total       Float
+  
+  status      String @default("draft") // draft, issued, applied
+  
+  // Reason
+  reason      String  // refund, discount, correction, other
+  reasonNotes String?
+  
+  // Link to original invoice
+  invoiceId   String?
+  
+  issueDate   DateTime @default(now())
+  issuedAt    DateTime?
+  appliedAt   DateTime?
+  
+  notes       String?
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  items  CreditNoteItem[]
+
+  @@unique([userId, number])
+  @@index([userId])
+  @@index([clientId])
+  @@index([status])
+}
+
+model CreditNoteItem {
+  id          String   @id @default(cuid())
+  creditNoteId String
+  
+  description String
+  quantity    Float
+  unitPrice   Float
+  tvaRate     Float
+  
+  lineTotal   Float @default(0)
+  lineTva     Float @default(0)
+  
+  createdAt DateTime @default(now())
+  
+  creditNote CreditNote @relation(fields: [creditNoteId], references: [id], onDelete: Cascade)
+
+  @@index([creditNoteId])
+}
+
+// ===========================================
+// Leads (Prospects CRM)
+// ===========================================
+
+model Lead {
+  id        String   @id @default(cuid())
+  userId    String
+  
+  name      String
+  email     String?
+  phone     String?
+  company   String?
+  
+  // Source tracking
+  source    String?  // website, referral, social, direct, other
+  
+  // Status pipeline
+  status    String   @default("new") // new, contacted, qualified, proposal, won, lost
+  
+  // BANT qualification
+  budget    String?
+  authority String?  // decision maker
+  need      String?
+  timeline  String?
+  
+  // Scoring
+  score     Int      @default(0)
+  
+  // Assignment
+  assignedTo String?
+  
+  notes     String?
+  
+  // Dates
+  contactedAt DateTime?
+  qualifiedAt DateTime?
+  wonAt       DateTime?
+  lostAt      DateTime?
+  
+  // Converted to client
+  clientId   String?
+  convertedAt DateTime?
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  user   User?   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  client Client? @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  tasks  Task[]
+
+  @@index([userId])
+  @@index([status])
+  @@index([source])
+}
+
+// ===========================================
+// Tasks
+// ===========================================
+
+model Task {
+  id        String   @id @default(cuid())
+  userId    String
+  leadId    String?
+  
+  title       String
+  description String?
+  
+  status      String @default("pending") // pending, in_progress, completed, cancelled
+  priority    String @default("medium")  // low, medium, high, urgent
+  
+  dueDate     DateTime?
+  completedAt DateTime?
+  
+  // Relations
+  clientIds   String?  // JSON array of client IDs
+  invoiceIds  String?  // JSON array of invoice IDs
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lead Lead? @relation(fields: [leadId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([status])
+  @@index([dueDate])
+}
+
+// ===========================================
+// Products
+// ===========================================
+
+model Product {
+  id        String   @id @default(cuid())
+  userId    String
+  
+  name      String
+  sku       String?
+  description String?
+  
+  // Pricing
+  unitPrice   Float
+  tvaRate     Float @default(20)
+  
+  // Inventory
+  stockQuantity Float @default(0)
+  minStock      Float @default(0)
+  maxStock      Float?
+  
+  // Category
+  category     String?
+  
+  // Status
+  active       Boolean @default(true)
+  
+  // Stats
+  timesSold    Int @default(0)
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, sku])
+  @@index([userId])
+  @@index([category])
+}
+
+// ===========================================
+// Team Members
+// ===========================================
+
+model TeamMember {
+  id        String   @id @default(cuid())
+  userId    String
+  
+  email     String
+  name      String
+  
+  // Role: admin, accountant, viewer
+  role      String   @default("viewer")
+  
+  // Permissions (JSON array)
+  permissions String @default("[]")
+  
+  // Status
+  status    String   @default("pending") // pending, active, inactive
+  
+  // Invitation
+  invitedBy  String?
+  invitedAt  DateTime @default(now())
+  joinedAt   DateTime?
+  
+  // Last activity
+  lastActiveAt DateTime?
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, email])
+  @@index([userId])
+  @@index([status])
+}
