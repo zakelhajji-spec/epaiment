@@ -5,16 +5,22 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
-import { createHmac } from 'crypto'
+import { createHmac, timingSafeEqual } from 'crypto'
 
-// CMI merchant configuration (should be in environment variables)
-const CMI_MERCHANT_ID = process.env.CMI_MERCHANT_ID || ''
-const CMI_SECRET_KEY = process.env.CMI_SECRET_KEY || ''
+// CMI merchant configuration
 const CMI_STORE_KEY = process.env.CMI_STORE_KEY || ''
 
-// Verify CMI signature
+// Tolerance for amount comparison (in MAD) to handle rounding differences
+const AMOUNT_TOLERANCE_MAD = 0.01
+
+// Verify CMI signature using timing-safe comparison
 function verifyCMISignature(params: Record<string, string>, signature: string): boolean {
   try {
+    if (!CMI_STORE_KEY) {
+      console.error('[CMI Webhook] CMI_STORE_KEY is not configured')
+      return false
+    }
+
     // Sort parameters and create signature string
     const sortedParams = Object.keys(params)
       .filter(key => key !== 'HASH' && params[key])
@@ -27,10 +33,14 @@ function verifyCMISignature(params: Record<string, string>, signature: string): 
       .update(sortedParams)
       .digest('hex')
       .toUpperCase()
-    
-    return signature === expectedSignature
+
+    // Use timing-safe comparison to prevent timing attacks
+    const sigBuf = Buffer.from(signature, 'utf8')
+    const expectedBuf = Buffer.from(expectedSignature, 'utf8')
+    if (sigBuf.length !== expectedBuf.length) return false
+    return timingSafeEqual(sigBuf, expectedBuf)
   } catch (error) {
-    console.error('Error verifying CMI signature:', error)
+    console.error('[CMI Webhook] Error verifying signature:', error)
     return false
   }
 }
@@ -46,27 +56,32 @@ export async function POST(request: NextRequest) {
       params[key] = value.toString()
     })
 
-    console.log('[CMI Webhook] Received callback:', params)
-
     // Extract key fields
     const {
       HASH,
       oid,           // Order ID (our reference)
       amount,
-      currency,
       Response,
       ProcReturnCode,
       mdStatus,
       mdErrorMsg,
-      clientIp
     } = params
 
-    // Verify signature (skip in test mode)
-    if (process.env.NODE_ENV === 'production' && HASH) {
-      if (!verifyCMISignature(params, HASH)) {
-        console.error('[CMI Webhook] Invalid signature')
-        return new NextResponse('SIGNATURE_MISMATCH', { status: 400 })
-      }
+    // Validate required fields
+    if (!oid || !amount || !Response) {
+      console.error('[CMI Webhook] Missing required fields')
+      return new NextResponse('INVALID_REQUEST', { status: 400 })
+    }
+
+    // Always verify signature (reject if no HASH provided)
+    if (!HASH) {
+      console.error('[CMI Webhook] Missing signature hash')
+      return new NextResponse('SIGNATURE_MISSING', { status: 400 })
+    }
+
+    if (!verifyCMISignature(params, HASH)) {
+      console.error('[CMI Webhook] Invalid signature')
+      return new NextResponse('SIGNATURE_MISMATCH', { status: 400 })
     }
 
     // Check if payment was successful
@@ -87,16 +102,48 @@ export async function POST(request: NextRequest) {
       return new NextResponse('OK') // Return OK to prevent retries
     }
 
+    // Idempotency check: skip if already processed
+    if (paymentLink.status === 'paid') {
+      console.log('[CMI Webhook] Payment already processed, skipping:', oid)
+      return new NextResponse('APPROVED')
+    }
+
     if (isSuccess) {
-      // Payment successful
+      // Validate amount
       const paidAmount = parseFloat(amount) / 100 // CMI sends amount in cents
+      if (isNaN(paidAmount) || paidAmount <= 0) {
+        console.error('[CMI Webhook] Invalid payment amount:', amount)
+        return new NextResponse('INVALID_AMOUNT', { status: 400 })
+      }
+
+      // Verify amount matches expected payment link amount (allow small rounding difference)
+      if (Math.abs(paidAmount - paymentLink.amount) > AMOUNT_TOLERANCE_MAD) {
+        console.error('[CMI Webhook] Amount mismatch:', paidAmount, 'vs expected', paymentLink.amount)
+        await prisma.auditLog.create({
+          data: {
+            userId: paymentLink.userId,
+            action: 'payment_amount_mismatch',
+            resource: 'payment_link',
+            resourceId: paymentLink.id,
+            details: JSON.stringify({
+              receivedAmount: paidAmount,
+              expectedAmount: paymentLink.amount,
+              reference: oid,
+            }),
+            status: 'failure'
+          }
+        })
+        return new NextResponse('AMOUNT_MISMATCH', { status: 400 })
+      }
+
+      const gatewayPaymentId = params.transId || params.xid || null
       
       await prisma.paymentLink.update({
         where: { id: paymentLink.id },
         data: {
           status: 'paid',
           paidAt: new Date(),
-          gatewayPaymentId: params.transId || params.xid,
+          gatewayPaymentId,
           gatewayFee: paidAmount * 0.025 // Approximate fee (2.5%)
         }
       })
@@ -112,42 +159,31 @@ export async function POST(request: NextRequest) {
             amount: paidAmount,
             reference: oid,
             gateway: 'cmi',
-            gatewayResponse: params
+            gatewayPaymentId,
           })
-        }
-      })
-
-      // Create notification for user
-      await prisma.notification.create({
-        data: {
-          userId: paymentLink.userId,
-          type: 'payment_received',
-          title: 'Paiement reçu',
-          message: `Paiement de ${paidAmount} MAD reçu via CMI`,
-          entityId: paymentLink.id,
-          entityType: 'payment_link',
-          priority: 'high'
         }
       })
 
       console.log('[CMI Webhook] Payment successful:', oid, paidAmount)
       
-      // Return success page URL for redirect
       return new NextResponse('APPROVED')
     } else {
       // Payment failed
       console.log('[CMI Webhook] Payment failed:', oid, Response, mdErrorMsg)
       
-      // Create notification for failed payment
-      await prisma.notification.create({
+      // Log the failure for auditing
+      await prisma.auditLog.create({
         data: {
           userId: paymentLink.userId,
-          type: 'payment_failed',
-          title: 'Paiement échoué',
-          message: `Tentative de paiement échouée pour ${paymentLink.description}`,
-          entityId: paymentLink.id,
-          entityType: 'payment_link',
-          priority: 'normal'
+          action: 'payment_failed',
+          resource: 'payment_link',
+          resourceId: paymentLink.id,
+          details: JSON.stringify({
+            reference: oid,
+            response: Response,
+            errorMessage: mdErrorMsg,
+          }),
+          status: 'failure'
         }
       })
       
@@ -165,10 +201,15 @@ export async function GET(request: NextRequest) {
   const oid = searchParams.get('oid')
   const status = searchParams.get('status') || 'success'
 
-  // Redirect to payment result page
+  // Validate oid is alphanumeric/dash only to prevent open redirect
+  if (!oid || !/^[A-Za-z0-9\-]+$/.test(oid)) {
+    return NextResponse.redirect(new URL('/', request.url))
+  }
+
+  const baseUrl = process.env.NEXTAUTH_URL || new URL('/', request.url).origin
   const redirectUrl = status === 'success' 
-    ? `${process.env.NEXTAUTH_URL}/pay/${oid}?status=success`
-    : `${process.env.NEXTAUTH_URL}/pay/${oid}?status=failed`
+    ? `${baseUrl}/pay/${encodeURIComponent(oid)}?status=success`
+    : `${baseUrl}/pay/${encodeURIComponent(oid)}?status=failed`
 
   return NextResponse.redirect(redirectUrl)
 }

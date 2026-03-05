@@ -1,22 +1,19 @@
 /**
  * User Registration Route
- * Creates new users in the database
+ * Creates new users in the database with rate limiting and validation
  */
 
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { hash } from 'bcryptjs'
-
-// Email validation
-function isValidEmail(email: string): boolean {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
-}
+import { rateLimit, sanitizeInput, isValidEmail } from '@/lib/security'
 
 // Password strength validation
 function isStrongPassword(password: string): { valid: boolean; errors: string[] } {
   const errors: string[] = []
   
   if (password.length < 8) errors.push('Au moins 8 caractères')
+  if (password.length > 128) errors.push('Maximum 128 caractères')
   if (!/[A-Z]/.test(password)) errors.push('Au moins une majuscule')
   if (!/[a-z]/.test(password)) errors.push('Au moins une minuscule')
   if (!/[0-9]/.test(password)) errors.push('Au moins un chiffre')
@@ -27,6 +24,18 @@ function isStrongPassword(password: string): { valid: boolean; errors: string[] 
 // POST - Register new user
 export async function POST(request: NextRequest) {
   try {
+    // Rate limiting: max 5 registrations per IP per 15 minutes
+    const forwardedFor = request.headers.get('x-forwarded-for')
+    const clientIp = forwardedFor ? forwardedFor.split(',')[0].trim() : 'unknown'
+    const rateLimitResult = rateLimit(`register:${clientIp}`, 5, 15 * 60 * 1000)
+    
+    if (!rateLimitResult.success) {
+      return NextResponse.json(
+        { error: 'Trop de tentatives. Veuillez réessayer plus tard.' },
+        { status: 429 }
+      )
+    }
+
     const body = await request.json()
     const { email, password, name, companyName, companyIce } = body
 
@@ -34,6 +43,13 @@ export async function POST(request: NextRequest) {
     if (!email || !password) {
       return NextResponse.json(
         { error: 'Email et mot de passe requis' },
+        { status: 400 }
+      )
+    }
+
+    if (typeof email !== 'string' || typeof password !== 'string') {
+      return NextResponse.json(
+        { error: 'Format de données invalide' },
         { status: 400 }
       )
     }
@@ -55,7 +71,7 @@ export async function POST(request: NextRequest) {
 
     // Check if user exists in database
     const existingUser = await prisma.user.findUnique({
-      where: { email: email.toLowerCase() }
+      where: { email: email.toLowerCase().trim() }
     })
 
     if (existingUser) {
@@ -65,30 +81,24 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Sanitize text inputs
+    const safeName = name ? sanitizeInput(String(name)).substring(0, 100) : email.split('@')[0]
+    const safeCompanyName = companyName ? sanitizeInput(String(companyName)).substring(0, 200) : null
+    const safeCompanyIce = companyIce ? String(companyIce).replace(/[^0-9]/g, '').substring(0, 15) : null
+
     // Hash password
     const passwordHash = await hash(password, 12)
 
     // Create user in database
     const user = await prisma.user.create({
       data: {
-        email: email.toLowerCase(),
+        email: email.toLowerCase().trim(),
         passwordHash,
-        name: name || email.split('@')[0],
-        companyName: companyName || null,
-        companyIce: companyIce || null,
+        name: safeName,
+        companyName: safeCompanyName,
+        companyIce: safeCompanyIce,
       }
     })
-
-    // Create default company for the user
-    if (companyName) {
-      await prisma.company.create({
-        data: {
-          ownerId: user.id,
-          name: companyName,
-          ice: companyIce || null,
-        }
-      })
-    }
 
     return NextResponse.json({
       success: true,
@@ -102,33 +112,9 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Registration error:', error)
     
-    // Check if it's a Prisma error
-    const errorMessage = error instanceof Error ? error.message : 'Erreur inconnue'
-    
-    // Log more details for debugging
-    if (error instanceof Error) {
-      console.error('Error name:', error.name)
-      console.error('Error stack:', error.stack)
-    }
-    
-    // Check for common database connection issues
-    if (errorMessage.includes('connect') || errorMessage.includes('ECONNREFUSED')) {
-      return NextResponse.json(
-        { error: 'Erreur de connexion à la base de données. Veuillez réessayer plus tard.' },
-        { status: 503 }
-      )
-    }
-    
-    // Check for Prisma specific errors
-    if (errorMessage.includes('Prisma') || errorMessage.includes('prisma')) {
-      return NextResponse.json(
-        { error: 'Erreur de base de données. Vérifiez la configuration.' },
-        { status: 500 }
-      )
-    }
-    
+    // Generic error message to avoid leaking internal details
     return NextResponse.json(
-      { error: 'Erreur lors de l\'inscription: ' + errorMessage },
+      { error: 'Une erreur est survenue lors de l\'inscription. Veuillez réessayer.' },
       { status: 500 }
     )
   }

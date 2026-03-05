@@ -1,17 +1,22 @@
 /**
  * API Keys Management Route
- * Simplified for deployment
+ * Secured with authentication and cryptographic key generation
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-
-// In-memory store for demo (use database in production)
-const apiKeysStore: Map<string, any[]> = new Map()
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth'
+import { generateApiKey, getApiKeyId } from '@/lib/security'
 
 // GET - List API keys for user
 export async function GET(request: NextRequest) {
   try {
-    // Demo response
+    const session = await getServerSession(authOptions)
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    // Return empty list (API key persistence requires database model)
     return NextResponse.json({
       success: true,
       keys: []
@@ -27,23 +32,30 @@ export async function GET(request: NextRequest) {
 // POST - Create new API key
 export async function POST(request: NextRequest) {
   try {
+    const session = await getServerSession(authOptions)
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
     const body = await request.json()
     const { name, permissions } = body
 
-    // Generate API key
-    const prefix = 'ep_live_'
-    const keyPart = Array.from({ length: 32 }, () => 
-      '0123456789abcdef'[Math.floor(Math.random() * 16)]
-    ).join('')
-    
-    const fullKey = `${prefix}${keyPart}`
-    const keyPrefix = fullKey.substring(0, 12)
+    if (!name || typeof name !== 'string' || name.trim().length === 0) {
+      return NextResponse.json(
+        { error: 'API key name is required' },
+        { status: 400 }
+      )
+    }
+
+    // Generate cryptographically secure API key
+    const fullKey = generateApiKey('ep_live_')
+    const keyPrefix = getApiKeyId(fullKey)
 
     const newKey = {
       id: `key_${Date.now()}`,
-      name,
+      name: name.trim(),
       keyPrefix,
-      permissions: permissions || ['read'],
+      permissions: Array.isArray(permissions) ? permissions : ['read'],
       createdAt: new Date().toISOString(),
       status: 'active'
     }
@@ -64,8 +76,20 @@ export async function POST(request: NextRequest) {
 // DELETE - Revoke API key
 export async function DELETE(request: NextRequest) {
   try {
+    const session = await getServerSession(authOptions)
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
     const { searchParams } = new URL(request.url)
     const keyId = searchParams.get('id')
+
+    if (!keyId) {
+      return NextResponse.json(
+        { error: 'API key ID is required' },
+        { status: 400 }
+      )
+    }
 
     return NextResponse.json({
       success: true,

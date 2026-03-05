@@ -26,10 +26,15 @@ export const authOptions: NextAuthOptions = {
 
         // Find user in database
         const user = await prisma.user.findUnique({
-          where: { email: credentials.email.toLowerCase() }
+          where: { email: credentials.email.toLowerCase().trim() }
         })
 
         if (!user || !user.passwordHash) {
+          return null
+        }
+
+        // Check account status - reject suspended or deleted accounts
+        if (user.accountStatus !== 'active') {
           return null
         }
 
