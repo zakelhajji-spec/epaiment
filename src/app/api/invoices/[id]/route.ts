@@ -8,6 +8,8 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/db'
 
+const MAX_DISCOUNT_PERCENT = 100
+
 // GET - Get a single invoice by ID
 export async function GET(
   request: NextRequest,
@@ -107,7 +109,7 @@ export async function PUT(
     }
     if (discountPercent !== undefined) {
       const val = parseFloat(discountPercent)
-      if (isNaN(val) || val < 0 || val > 100) {
+      if (isNaN(val) || val < 0 || val > MAX_DISCOUNT_PERCENT) {
         return NextResponse.json({ error: 'Discount percent must be between 0 and 100' }, { status: 400 })
       }
       updateData.discountPercent = val

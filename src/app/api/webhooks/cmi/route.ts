@@ -10,6 +10,9 @@ import { createHmac, timingSafeEqual } from 'crypto'
 // CMI merchant configuration
 const CMI_STORE_KEY = process.env.CMI_STORE_KEY || ''
 
+// Tolerance for amount comparison (in MAD) to handle rounding differences
+const AMOUNT_TOLERANCE_MAD = 0.01
+
 // Verify CMI signature using timing-safe comparison
 function verifyCMISignature(params: Record<string, string>, signature: string): boolean {
   try {
@@ -114,7 +117,7 @@ export async function POST(request: NextRequest) {
       }
 
       // Verify amount matches expected payment link amount (allow small rounding difference)
-      if (Math.abs(paidAmount - paymentLink.amount) > 0.01) {
+      if (Math.abs(paidAmount - paymentLink.amount) > AMOUNT_TOLERANCE_MAD) {
         console.error('[CMI Webhook] Amount mismatch:', paidAmount, 'vs expected', paymentLink.amount)
         await prisma.auditLog.create({
           data: {
