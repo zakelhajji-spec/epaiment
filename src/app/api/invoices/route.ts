@@ -180,7 +180,6 @@ export async function POST(request: NextRequest) {
         dueDate: parsedDueDate,
         notes: notes ? sanitizeInput(String(notes)).substring(0, 2000) : null,
         internalNotes: internalNotes ? sanitizeInput(String(internalNotes)).substring(0, 2000) : null,
-        paymentTerms: paymentTerms ? String(paymentTerms).substring(0, 500) : null,
         isRecurring: Boolean(isRecurring),
         recurringFrequency: isRecurring ? recurringFrequency : null
       },

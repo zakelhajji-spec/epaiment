@@ -143,7 +143,6 @@ export async function PUT(
     }
     if (notes !== undefined) updateData.notes = notes
     if (internalNotes !== undefined) updateData.internalNotes = internalNotes
-    if (paymentTerms !== undefined) updateData.paymentTerms = paymentTerms
     if (isRecurring !== undefined) {
       updateData.isRecurring = isRecurring
       updateData.recurringFrequency = isRecurring ? recurringFrequency : null
