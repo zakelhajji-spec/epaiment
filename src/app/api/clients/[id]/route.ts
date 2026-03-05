@@ -32,7 +32,7 @@ export async function GET(
           take: 10
         },
         _count: {
-          select: { invoices: true, quotes: true }
+          select: { invoices: true }
         }
       }
     })
@@ -88,10 +88,10 @@ export async function PUT(
       notes
     } = body
 
-    const updateData: any = {}
-    if (name !== undefined) updateData.name = name
+    const updateData: Record<string, unknown> = {}
+    if (name !== undefined) updateData.name = String(name).substring(0, 200)
     if (ice !== undefined) updateData.ice = ice
-    if (email !== undefined) updateData.email = email.toLowerCase()
+    if (email !== undefined) updateData.email = email.toLowerCase().trim()
     if (phone !== undefined) updateData.phone = phone
     if (address !== undefined) updateData.address = address
     if (city !== undefined) updateData.city = city

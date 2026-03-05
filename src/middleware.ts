@@ -33,12 +33,6 @@ function isPublicPath(pathname: string): boolean {
          staticPaths.some(path => pathname.startsWith(path))
 }
 
-function isApiAuthPath(pathname: string): boolean {
-  return pathname.startsWith('/api/auth') || 
-         pathname.startsWith('/api/webhooks') ||
-         pathname.startsWith('/api/public')
-}
-
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
   const response = NextResponse.next()
@@ -48,16 +42,26 @@ export async function middleware(request: NextRequest) {
   response.headers.set('X-Content-Type-Options', 'nosniff')
   response.headers.set('X-XSS-Protection', '1; mode=block')
   response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin')
+  response.headers.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=()')
   
-  // Content Security Policy
-  const cspHeader = `
-    default-src 'self';
-    script-src 'self' 'unsafe-eval' 'unsafe-inline';
-    style-src 'self' 'unsafe-inline';
-    img-src 'self' data: https:;
-    font-src 'self' data:;
-    connect-src 'self' https:;
-  `.replace(/\s{2,}/g, ' ').trim()
+  // HSTS - enforce HTTPS in production
+  if (process.env.NODE_ENV === 'production') {
+    response.headers.set(
+      'Strict-Transport-Security',
+      'max-age=31536000; includeSubDomains'
+    )
+  }
+  
+  // Content Security Policy (no unsafe-eval)
+  const cspHeader = [
+    "default-src 'self'",
+    "script-src 'self' 'unsafe-inline'",
+    "style-src 'self' 'unsafe-inline'",
+    "img-src 'self' data: https:",
+    "font-src 'self' data:",
+    "connect-src 'self' https:",
+    "frame-ancestors 'none'",
+  ].join('; ')
   
   response.headers.set('Content-Security-Policy', cspHeader)
 
@@ -86,15 +90,6 @@ export async function middleware(request: NextRequest) {
     const loginUrl = new URL('/auth/login', request.url)
     loginUrl.searchParams.set('callbackUrl', pathname)
     return NextResponse.redirect(loginUrl)
-  }
-
-  // Get client IP for logging
-  const forwardedFor = request.headers.get('x-forwarded-for')
-  const clientIp = forwardedFor ? forwardedFor.split(',')[0].trim() : 'unknown'
-
-  // Log request in development
-  if (process.env.NODE_ENV === 'development') {
-    console.log(`[MIDDLEWARE] ${request.method} ${pathname} - User: ${token.email} - IP: ${clientIp}`)
   }
 
   return response

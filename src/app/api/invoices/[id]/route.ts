@@ -95,18 +95,52 @@ export async function PUT(
       recurringFrequency
     } = body
 
-    const updateData: any = {}
+    const updateData: Record<string, unknown> = {}
     if (clientId) updateData.clientId = clientId
     if (items) updateData.items = JSON.stringify(items)
-    if (subtotal !== undefined) updateData.subtotal = parseFloat(subtotal)
-    if (discountPercent !== undefined) updateData.discountPercent = parseFloat(discountPercent)
-    if (discountAmount !== undefined) updateData.discountAmount = parseFloat(discountAmount)
-    if (tvaAmount !== undefined) updateData.tvaAmount = parseFloat(tvaAmount)
-    if (total !== undefined) {
-      updateData.total = parseFloat(total)
-      updateData.balance = parseFloat(total) - existingInvoice.amountPaid
+    if (subtotal !== undefined) {
+      const val = parseFloat(subtotal)
+      if (isNaN(val) || val < 0) {
+        return NextResponse.json({ error: 'Invalid subtotal' }, { status: 400 })
+      }
+      updateData.subtotal = val
     }
-    if (dueDate) updateData.dueDate = new Date(dueDate)
+    if (discountPercent !== undefined) {
+      const val = parseFloat(discountPercent)
+      if (isNaN(val) || val < 0 || val > 100) {
+        return NextResponse.json({ error: 'Discount percent must be between 0 and 100' }, { status: 400 })
+      }
+      updateData.discountPercent = val
+    }
+    if (discountAmount !== undefined) {
+      const val = parseFloat(discountAmount)
+      if (isNaN(val) || val < 0) {
+        return NextResponse.json({ error: 'Invalid discount amount' }, { status: 400 })
+      }
+      updateData.discountAmount = val
+    }
+    if (tvaAmount !== undefined) {
+      const val = parseFloat(tvaAmount)
+      if (isNaN(val) || val < 0) {
+        return NextResponse.json({ error: 'Invalid TVA amount' }, { status: 400 })
+      }
+      updateData.tvaAmount = val
+    }
+    if (total !== undefined) {
+      const val = parseFloat(total)
+      if (isNaN(val) || val < 0) {
+        return NextResponse.json({ error: 'Invalid total' }, { status: 400 })
+      }
+      updateData.total = val
+      updateData.balance = val - existingInvoice.amountPaid
+    }
+    if (dueDate) {
+      const parsed = new Date(dueDate)
+      if (isNaN(parsed.getTime())) {
+        return NextResponse.json({ error: 'Invalid due date' }, { status: 400 })
+      }
+      updateData.dueDate = parsed
+    }
     if (notes !== undefined) updateData.notes = notes
     if (internalNotes !== undefined) updateData.internalNotes = internalNotes
     if (paymentTerms !== undefined) updateData.paymentTerms = paymentTerms
@@ -220,18 +254,30 @@ export async function PATCH(
       return NextResponse.json({ error: 'Invoice not found' }, { status: 404 })
     }
 
-    let updateData: any = {}
+    let updateData: Record<string, unknown> = {}
 
     switch (action) {
       case 'send':
+        if (invoice.status !== 'draft') {
+          return NextResponse.json(
+            { error: 'Can only send draft invoices' },
+            { status: 400 }
+          )
+        }
         updateData = {
           status: 'sent',
           sentAt: new Date()
         }
         break
       
-      case 'mark_paid':
+      case 'mark_paid': {
         const amount = parseFloat(paymentAmount) || invoice.total
+        if (amount <= 0 || amount > invoice.total) {
+          return NextResponse.json(
+            { error: 'Payment amount must be between 0 and invoice total' },
+            { status: 400 }
+          )
+        }
         updateData = {
           status: 'paid',
           paidAt: new Date(),
@@ -248,12 +294,19 @@ export async function PATCH(
           }
         })
         break
+      }
       
-      case 'mark_partial':
+      case 'mark_partial': {
         const partialAmount = parseFloat(paymentAmount)
         if (!partialAmount || partialAmount <= 0) {
           return NextResponse.json(
             { error: 'Invalid payment amount' },
+            { status: 400 }
+          )
+        }
+        if (partialAmount >= invoice.balance) {
+          return NextResponse.json(
+            { error: 'Partial payment must be less than remaining balance. Use mark_paid instead.' },
             { status: 400 }
           )
         }
@@ -273,14 +326,21 @@ export async function PATCH(
           }
         })
         break
+      }
       
       case 'cancel':
+        if (invoice.status === 'paid') {
+          return NextResponse.json(
+            { error: 'Cannot cancel a paid invoice' },
+            { status: 400 }
+          )
+        }
         updateData = { status: 'cancelled' }
         break
       
       default:
         return NextResponse.json(
-          { error: 'Invalid action' },
+          { error: 'Invalid action. Valid actions: send, mark_paid, mark_partial, cancel' },
           { status: 400 }
         )
     }
